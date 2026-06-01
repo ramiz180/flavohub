@@ -47,6 +47,7 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('docs', app, document);
   }
 
+  app.enableShutdownHooks();
   await app.listen(port);
   logger.log(`API running on http://localhost:${port}`);
   if (isDev) {

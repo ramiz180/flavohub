@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Must stay in sync with Role enum in packages/shared
+enum Role {
+  SUPER_ADMIN
+  RESTAURANT_OWNER
+  CUSTOMER
+}
+
+enum RestaurantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+}
+
+model Restaurant {
+  id        String           @id @default(cuid())
+  name      String
+  status    RestaurantStatus @default(PENDING)
+  isActive  Boolean          @default(false)
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
