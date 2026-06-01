@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Environment files — real values never committed
+.env
+.env.*
+!.env.example
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+/test-results/
+/playwright-report/

@@ -1,0 +1,10 @@
+{
+  "name": "@flavohub/config",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./eslint-base": "./eslint-base.mjs",
+    "./prettier": "./prettier.config.mjs"
+  }
+}
