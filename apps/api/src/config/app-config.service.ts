@@ -17,19 +17,19 @@ export class AppConfigService {
     return this.configService.get<string>('DATABASE_URL');
   }
 
-  get jwtAccessSecret(): string | undefined {
-    return this.configService.get<string>('JWT_ACCESS_SECRET');
+  get jwtAccessSecret(): string {
+    return this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
   }
 
-  get jwtAccessTtl(): string | undefined {
-    return this.configService.get<string>('JWT_ACCESS_TTL');
+  get jwtAccessTtl(): string {
+    return this.configService.getOrThrow<string>('JWT_ACCESS_TTL');
   }
 
-  get jwtRefreshSecret(): string | undefined {
-    return this.configService.get<string>('JWT_REFRESH_SECRET');
+  get jwtRefreshSecret(): string {
+    return this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
   }
 
-  get jwtRefreshTtl(): string | undefined {
-    return this.configService.get<string>('JWT_REFRESH_TTL');
+  get jwtRefreshTtl(): string {
+    return this.configService.getOrThrow<string>('JWT_REFRESH_TTL');
   }
 }
