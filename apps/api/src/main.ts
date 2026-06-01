@@ -17,8 +17,8 @@ async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
 
   const corsOrigins = process.env['CORS_ORIGINS']?.split(',').map((o) => o.trim()) ?? [
-    'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:3002',
   ];
   app.enableCors({ origin: corsOrigins, credentials: true });
 
