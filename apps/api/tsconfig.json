@@ -1,0 +1,10 @@
+{
+  "extends": "@flavohub/config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "outDir": "./dist",
+    "baseUrl": "./"
+  }
+}
