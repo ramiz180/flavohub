@@ -46,12 +46,33 @@ model AuditLog {
 }
 
 model Restaurant {
-  id        String           @id @default(cuid())
-  name      String
-  status    RestaurantStatus @default(PENDING)
-  isActive  Boolean          @default(false)
-  latitude  Float?
-  longitude Float?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id              String            @id @default(cuid())
+  name            String
+  description     String?
+  addressLine     String
+  city            String
+  phone           String
+  email           String?
+  cuisineType     String?
+  latitude        Float?
+  longitude       Float?
+  status          RestaurantStatus  @default(PENDING)
+  isActive        Boolean           @default(false)
+  rejectionReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  hours           RestaurantHours[]
+}
+
+model RestaurantHours {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int        // 0 = Sunday, 6 = Saturday
+  openTime     String     // HH:mm
+  closeTime    String     // HH:mm
+  isClosed     Boolean    @default(false)
+
+  @@unique([restaurantId, dayOfWeek])
 }

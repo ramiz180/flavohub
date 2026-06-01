@@ -6,16 +6,26 @@ import {
 } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import type { ApiSuccess } from '@flavohub/shared';
+import { ListResult } from '../list-result';
 
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<T, ApiSuccess<T>> {
-  intercept(_context: ExecutionContext, next: CallHandler<T>): Observable<ApiSuccess<T>> {
+export class ResponseInterceptor implements NestInterceptor {
+  intercept(_context: ExecutionContext, next: CallHandler): Observable<unknown> {
     return next.handle().pipe(
-      map((data) => ({
-        success: true as const,
-        data,
-      })),
+      map((data: unknown) => {
+        if (data instanceof ListResult) {
+          return {
+            success: true as const,
+            data: data.items,
+            meta: {
+              total: data.total,
+              page: data.page,
+              pageSize: data.pageSize,
+            },
+          };
+        }
+        return { success: true as const, data };
+      }),
     );
   }
 }
