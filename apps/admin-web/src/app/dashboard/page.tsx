@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
@@ -30,7 +31,7 @@ function DashboardContent() {
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
           <button onClick={handleLogout} className="text-sm text-gray-600 underline">
@@ -41,6 +42,17 @@ function DashboardContent() {
           Signed in as <strong>{currentUser.email}</strong>{' '}
           <span className="rounded bg-gray-200 px-1 py-0.5 text-xs">{currentUser.role}</span>
         </p>
+
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link
+            href="/dashboard/restaurants"
+            className="rounded bg-white p-5 shadow transition hover:shadow-md"
+          >
+            <h2 className="mb-1 font-semibold text-gray-900">Restaurants</h2>
+            <p className="text-sm text-gray-500">View, filter, approve, and manage restaurants.</p>
+          </Link>
+        </div>
+
         <div className="rounded bg-white p-4 shadow">
           <h2 className="mb-2 font-medium text-gray-800">GET /admin/ping</h2>
           <pre className="text-sm text-gray-700">{pingResult}</pre>
