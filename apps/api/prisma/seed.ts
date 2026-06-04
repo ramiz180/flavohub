@@ -1,4 +1,4 @@
-import { MarkupType, PrismaClient, RestaurantStatus, Role } from '@prisma/client';
+import { CouponType, MarkupType, PrismaClient, RestaurantStatus, Role } from '@prisma/client';
 import { hash } from 'argon2';
 
 const prisma = new PrismaClient();
@@ -116,6 +116,50 @@ async function main(): Promise<void> {
     },
   });
   console.log('Seed: platform pricing upserted (10% markup, delivery 30, surge off)');
+
+  // ── Platform settings (singleton) ────────────────────────────────────────
+  await prisma.platformSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default' },
+  });
+  console.log('Seed: platform settings upserted');
+
+  // ── Sample coupons ────────────────────────────────────────────────────────
+  const now = new Date();
+  const farFuture = new Date('2030-12-31T23:59:59.000Z');
+
+  await prisma.coupon.upsert({
+    where: { code: 'WELCOME10' },
+    update: {},
+    create: {
+      code: 'WELCOME10',
+      description: '10% off, max discount 50',
+      type: CouponType.PERCENT,
+      value: 10,
+      maxDiscount: 50,
+      minOrderValue: 100,
+      validFrom: now,
+      validUntil: farFuture,
+      isActive: true,
+    },
+  });
+
+  await prisma.coupon.upsert({
+    where: { code: 'FLAT50' },
+    update: {},
+    create: {
+      code: 'FLAT50',
+      description: 'Flat 50 off on orders above 300',
+      type: CouponType.FLAT,
+      value: 50,
+      minOrderValue: 300,
+      validFrom: now,
+      validUntil: farFuture,
+      isActive: true,
+    },
+  });
+  console.log('Seed: 2 sample coupons upserted (WELCOME10, FLAT50)');
 }
 
 main()

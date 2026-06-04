@@ -3,10 +3,12 @@ import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
+import { CouponsModule } from './coupons/coupons.module';
 import { HealthModule } from './health/health.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
     AdminModule,
     RestaurantsModule,
     PricingModule,
+    CouponsModule,
+    SettingsModule,
     HealthModule,
   ],
 })
