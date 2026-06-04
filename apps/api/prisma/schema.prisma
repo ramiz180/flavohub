@@ -20,6 +20,11 @@ enum RestaurantStatus {
   REJECTED
 }
 
+enum MarkupType {
+  PERCENT
+  FLAT
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -59,6 +64,9 @@ model Restaurant {
   status          RestaurantStatus  @default(PENDING)
   isActive        Boolean           @default(false)
   rejectionReason String?
+  // Per-restaurant markup override; null means use PlatformPricing global markup
+  markupType      MarkupType?
+  markupValue     Decimal?          @db.Decimal(10, 2)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -75,4 +83,15 @@ model RestaurantHours {
   isClosed     Boolean    @default(false)
 
   @@unique([restaurantId, dayOfWeek])
+}
+
+// Singleton pricing config; enforced by fixed id "default"
+model PlatformPricing {
+  id               String     @id @default("default")
+  globalMarkupType  MarkupType
+  globalMarkupValue Decimal    @db.Decimal(10, 2)
+  baseDeliveryFee   Decimal    @db.Decimal(10, 2)
+  surgeFee          Decimal    @db.Decimal(10, 2)
+  surgeEnabled      Boolean    @default(false)
+  updatedAt         DateTime   @updatedAt
 }

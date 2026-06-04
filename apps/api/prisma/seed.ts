@@ -1,4 +1,4 @@
-import { PrismaClient, RestaurantStatus, Role } from '@prisma/client';
+import { MarkupType, PrismaClient, RestaurantStatus, Role } from '@prisma/client';
 import { hash } from 'argon2';
 
 const prisma = new PrismaClient();
@@ -101,6 +101,21 @@ async function main(): Promise<void> {
   });
 
   console.log('Seed: 3 sample restaurants upserted');
+
+  // ── Platform pricing (singleton) ─────────────────────────────────────────
+  await prisma.platformPricing.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      globalMarkupType: MarkupType.PERCENT,
+      globalMarkupValue: 10,
+      baseDeliveryFee: 30,
+      surgeFee: 0,
+      surgeEnabled: false,
+    },
+  });
+  console.log('Seed: platform pricing upserted (10% markup, delivery 30, surge off)');
 }
 
 main()

@@ -4,6 +4,7 @@ import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { HealthModule } from './health/health.module';
+import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 
@@ -15,6 +16,7 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
     AuthModule,
     AdminModule,
     RestaurantsModule,
+    PricingModule,
     HealthModule,
   ],
 })
