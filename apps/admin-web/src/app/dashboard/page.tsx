@@ -60,6 +60,24 @@ function DashboardContent() {
               Configure markup, delivery fee, surge, and preview breakdowns.
             </p>
           </Link>
+          <Link
+            href="/dashboard/coupons"
+            className="rounded bg-white p-5 shadow transition hover:shadow-md"
+          >
+            <h2 className="mb-1 font-semibold text-gray-900">Coupons</h2>
+            <p className="text-sm text-gray-500">
+              Create and manage discount coupons. Test coupon validation live.
+            </p>
+          </Link>
+          <Link
+            href="/dashboard/settings"
+            className="rounded bg-white p-5 shadow transition hover:shadow-md"
+          >
+            <h2 className="mb-1 font-semibold text-gray-900">Settings</h2>
+            <p className="text-sm text-gray-500">
+              Configure platform name, support contacts, currency, and order controls.
+            </p>
+          </Link>
         </div>
 
         <div className="rounded bg-white p-4 shadow">

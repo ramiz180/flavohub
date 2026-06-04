@@ -13,6 +13,16 @@ import type {
   UpdatePricingPayload,
   UpdateRestaurantMarkupPayload,
 } from '@/types/pricing';
+import type {
+  Coupon,
+  CouponValidatePayload,
+  CouponValidateResult,
+  CreateCouponPayload,
+  ListCouponsQuery,
+  PlatformSettings,
+  UpdateCouponPayload,
+  UpdateSettingsPayload,
+} from '@/types/coupon';
 
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
 
@@ -136,5 +146,38 @@ export const apiClient = {
         body: dto,
         token,
       }),
+  },
+
+  coupons: {
+    list: (token: string, query: ListCouponsQuery = {}) => {
+      const q: Record<string, string | number | boolean | undefined> = {};
+      if (query.isActive !== undefined) q['isActive'] = query.isActive;
+      if (query.search) q['search'] = query.search;
+      if (query.page !== undefined) q['page'] = query.page;
+      if (query.pageSize !== undefined) q['pageSize'] = query.pageSize;
+      return apiFetchList<Coupon>('/admin/coupons', { token, query: q });
+    },
+
+    get: (token: string, id: string) => apiFetch<Coupon>(`/admin/coupons/${id}`, { token }),
+
+    create: (token: string, dto: CreateCouponPayload) =>
+      apiFetch<Coupon>('/admin/coupons', { method: 'POST', body: dto, token }),
+
+    update: (token: string, id: string, dto: UpdateCouponPayload) =>
+      apiFetch<Coupon>(`/admin/coupons/${id}`, { method: 'PATCH', body: dto, token }),
+
+    validate: (token: string, dto: CouponValidatePayload) =>
+      apiFetch<CouponValidateResult>('/admin/coupons/validate', {
+        method: 'POST',
+        body: dto,
+        token,
+      }),
+  },
+
+  settings: {
+    get: (token: string) => apiFetch<PlatformSettings>('/admin/settings', { token }),
+
+    update: (token: string, dto: UpdateSettingsPayload) =>
+      apiFetch<PlatformSettings>('/admin/settings', { method: 'PATCH', body: dto, token }),
   },
 };
