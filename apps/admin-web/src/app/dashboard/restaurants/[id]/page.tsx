@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
-import type { RestaurantWithHours } from '@/types/restaurant';
+import type { MarkupType, RestaurantWithHours } from '@/types/restaurant';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -34,11 +34,18 @@ function RestaurantDetailContent() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // lifecycle action state
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  // markup override state
+  const [overrideType, setOverrideType] = useState<MarkupType>('PERCENT');
+  const [overrideValue, setOverrideValue] = useState('');
+  const [markupLoading, setMarkupLoading] = useState(false);
+  const [markupError, setMarkupError] = useState<string | null>(null);
+  const [markupSuccess, setMarkupSuccess] = useState(false);
 
   const loadRestaurant = useCallback(() => {
     if (!accessToken || !id) return;
@@ -56,6 +63,13 @@ function RestaurantDetailContent() {
   useEffect(() => {
     loadRestaurant();
   }, [loadRestaurant]);
+
+  // Pre-populate markup form when restaurant data arrives
+  useEffect(() => {
+    if (!restaurant) return;
+    setOverrideType(restaurant.markupType ?? 'PERCENT');
+    setOverrideValue(restaurant.markupValue ?? '');
+  }, [restaurant]);
 
   async function runAction(action: () => Promise<unknown>) {
     setActionLoading(true);
@@ -92,6 +106,52 @@ function RestaurantDetailContent() {
     await runAction(() => apiClient.restaurants.deactivate(accessToken, id));
   }
 
+  async function handleSaveMarkup(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    const val = parseFloat(overrideValue);
+    if (isNaN(val) || val < 0) {
+      setMarkupError('Enter a valid non-negative number');
+      return;
+    }
+    setMarkupLoading(true);
+    setMarkupError(null);
+    setMarkupSuccess(false);
+    try {
+      await apiClient.pricing.updateRestaurantMarkup(accessToken, id, {
+        markupType: overrideType,
+        markupValue: val,
+      });
+      loadRestaurant();
+      setMarkupSuccess(true);
+      setTimeout(() => setMarkupSuccess(false), 3000);
+    } catch (err) {
+      setMarkupError(err instanceof Error ? err.message : 'Failed to save markup');
+    } finally {
+      setMarkupLoading(false);
+    }
+  }
+
+  async function handleClearMarkup() {
+    if (!accessToken) return;
+    setMarkupLoading(true);
+    setMarkupError(null);
+    setMarkupSuccess(false);
+    try {
+      await apiClient.pricing.updateRestaurantMarkup(accessToken, id, {
+        markupType: null,
+        markupValue: null,
+      });
+      loadRestaurant();
+      setMarkupSuccess(true);
+      setTimeout(() => setMarkupSuccess(false), 3000);
+    } catch (err) {
+      setMarkupError(err instanceof Error ? err.message : 'Failed to clear markup');
+    } finally {
+      setMarkupLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 p-8">
@@ -119,6 +179,7 @@ function RestaurantDetailContent() {
   const canActivate = restaurant.status === 'APPROVED' && !restaurant.isActive;
   const canDeactivate = restaurant.status === 'APPROVED' && restaurant.isActive;
   const hasActions = canApproveReject || canActivate || canDeactivate;
+  const hasMarkupOverride = restaurant.markupType !== null;
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
@@ -234,6 +295,72 @@ function RestaurantDetailContent() {
                 value={restaurant.longitude !== null ? String(restaurant.longitude) : null}
               />
             </dl>
+          </section>
+
+          {/* ── Markup Override ─────────────────────────────────────────── */}
+          <section className="rounded bg-white p-6 shadow">
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-base font-semibold text-gray-800">Markup Override</h2>
+              {hasMarkupOverride ? (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
+                  {restaurant.markupType} — {restaurant.markupValue}
+                  {restaurant.markupType === 'PERCENT' ? '%' : '₹'}
+                </span>
+              ) : (
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  Using global pricing
+                </span>
+              )}
+            </div>
+
+            <form onSubmit={(e) => void handleSaveMarkup(e)} className="space-y-3">
+              <div className="flex gap-6">
+                {(['PERCENT', 'FLAT'] as MarkupType[]).map((t) => (
+                  <label key={t} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="overrideType"
+                      value={t}
+                      checked={overrideType === t}
+                      onChange={() => setOverrideType(t)}
+                    />
+                    {t === 'PERCENT' ? 'Percent (%)' : 'Flat (₹)'}
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={overrideValue}
+                  onChange={(e) => setOverrideValue(e.target.value)}
+                  placeholder="e.g. 12.5"
+                  className="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={markupLoading}
+                  className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {markupLoading ? '…' : 'Set Override'}
+                </button>
+                {hasMarkupOverride && (
+                  <button
+                    type="button"
+                    onClick={() => void handleClearMarkup()}
+                    disabled={markupLoading}
+                    className="rounded border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                  >
+                    Clear (use global)
+                  </button>
+                )}
+              </div>
+
+              {markupError && <p className="text-sm text-red-600">{markupError}</p>}
+              {markupSuccess && <p className="text-sm text-green-600">Markup override updated.</p>}
+            </form>
           </section>
 
           <section className="rounded bg-white p-6 shadow">

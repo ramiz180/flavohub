@@ -1,11 +1,18 @@
-import type { ApiResponse } from '@flavohub/shared';
+import type { ApiResponse, PriceBreakdown } from '@flavohub/shared';
 import type {
   CreateRestaurantPayload,
   ListMeta,
   ListRestaurantsQuery,
+  MarkupType,
   Restaurant,
   RestaurantWithHours,
 } from '@/types/restaurant';
+import type {
+  PlatformPricing,
+  PricingPreviewPayload,
+  UpdatePricingPayload,
+  UpdateRestaurantMarkupPayload,
+} from '@/types/pricing';
 
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
 
@@ -68,6 +75,12 @@ type LoginData = {
   user: { id: string; email: string; fullName: string; role: string };
 };
 
+type MarkupOverrideResult = {
+  id: string;
+  markupType: MarkupType | null;
+  markupValue: string | null;
+};
+
 export const apiClient = {
   login: (email: string, password: string) =>
     apiFetch<LoginData>('/auth/login', { method: 'POST', body: { email, password } }),
@@ -106,5 +119,22 @@ export const apiClient = {
 
     deactivate: (token: string, id: string) =>
       apiFetch<Restaurant>(`/admin/restaurants/${id}/deactivate`, { method: 'POST', token }),
+  },
+
+  pricing: {
+    get: (token: string) => apiFetch<PlatformPricing>('/admin/pricing', { token }),
+
+    update: (token: string, dto: UpdatePricingPayload) =>
+      apiFetch<PlatformPricing>('/admin/pricing', { method: 'PATCH', body: dto, token }),
+
+    preview: (token: string, dto: PricingPreviewPayload) =>
+      apiFetch<PriceBreakdown>('/admin/pricing/preview', { method: 'POST', body: dto, token }),
+
+    updateRestaurantMarkup: (token: string, id: string, dto: UpdateRestaurantMarkupPayload) =>
+      apiFetch<MarkupOverrideResult>(`/admin/restaurants/${id}/markup`, {
+        method: 'PATCH',
+        body: dto,
+        token,
+      }),
   },
 };

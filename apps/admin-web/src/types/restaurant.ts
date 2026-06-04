@@ -1,3 +1,6 @@
+import type { MarkupType } from '@flavohub/shared';
+
+export type { MarkupType };
 export type RestaurantStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface RestaurantHours {
@@ -23,6 +26,9 @@ export interface Restaurant {
   status: RestaurantStatus;
   isActive: boolean;
   rejectionReason: string | null;
+  // Per-restaurant markup override; null means use global platform pricing
+  markupType: MarkupType | null;
+  markupValue: string | null; // Prisma Decimal serialized as string
   createdAt: string;
   updatedAt: string;
 }

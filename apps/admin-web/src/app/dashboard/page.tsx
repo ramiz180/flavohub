@@ -51,6 +51,15 @@ function DashboardContent() {
             <h2 className="mb-1 font-semibold text-gray-900">Restaurants</h2>
             <p className="text-sm text-gray-500">View, filter, approve, and manage restaurants.</p>
           </Link>
+          <Link
+            href="/dashboard/pricing"
+            className="rounded bg-white p-5 shadow transition hover:shadow-md"
+          >
+            <h2 className="mb-1 font-semibold text-gray-900">Pricing</h2>
+            <p className="text-sm text-gray-500">
+              Configure markup, delivery fee, surge, and preview breakdowns.
+            </p>
+          </Link>
         </div>
 
         <div className="rounded bg-white p-4 shadow">
