@@ -1,5 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Restaurant, RestaurantStatus } from '@prisma/client';
+import { Prisma, Restaurant, RestaurantStatus, Role as PrismaRole } from '@prisma/client';
+import { hash } from 'argon2';
+import { Role } from '@flavohub/shared';
 import { AuditLogService } from '../audit/audit.service';
 import { ListResult } from '../common/list-result';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +9,9 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { ListRestaurantsQueryDto } from './dto/list-restaurants-query.dto';
 import { RejectRestaurantDto } from './dto/reject-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
+import { AssignOwnerDto } from './dto/assign-owner.dto';
+
+export type SafeOwner = { id: string; email: string; fullName: string };
 
 @Injectable()
 export class RestaurantsService {
@@ -58,10 +63,52 @@ export class RestaurantsService {
   async findOne(id: string) {
     const restaurant = await this.prisma.restaurant.findUnique({
       where: { id },
-      include: { hours: { orderBy: { dayOfWeek: 'asc' } } },
+      include: {
+        hours: { orderBy: { dayOfWeek: 'asc' } },
+        owner: { select: { id: true, email: true, fullName: true } },
+      },
     });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
     return restaurant;
+  }
+
+  async assignOwner(
+    restaurantId: string,
+    dto: AssignOwnerDto,
+    actorId: string,
+  ): Promise<SafeOwner> {
+    const restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (restaurant.ownerId) throw new ConflictException('Restaurant already has an owner');
+
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new ConflictException('Email is already in use');
+
+    const passwordHash = await hash(dto.password);
+
+    const owner = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          fullName: dto.fullName,
+          role: Role.RESTAURANT_OWNER as unknown as PrismaRole,
+        },
+        select: { id: true, email: true, fullName: true },
+      });
+      await tx.restaurant.update({ where: { id: restaurantId }, data: { ownerId: created.id } });
+      return created;
+    });
+
+    await this.auditLog.log({
+      actorId,
+      action: 'ASSIGN_OWNER',
+      entityType: 'Restaurant',
+      entityId: restaurantId,
+      after: { ownerId: owner.id, ownerEmail: owner.email },
+    });
+
+    return owner;
   }
 
   async update(id: string, dto: UpdateRestaurantDto, actorId: string): Promise<Restaurant> {

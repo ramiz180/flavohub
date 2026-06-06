@@ -17,6 +17,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import type { JwtUser } from '../auth/interfaces/jwt-user.interface';
+import { AssignOwnerDto } from './dto/assign-owner.dto';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { ListRestaurantsQueryDto } from './dto/list-restaurants-query.dto';
 import { RejectRestaurantDto } from './dto/reject-restaurant.dto';
@@ -81,5 +82,11 @@ export class RestaurantsController {
   @ApiOperation({ summary: 'Deactivate a restaurant' })
   deactivate(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.deactivate(id, user.id);
+  }
+
+  @Post(':id/owner')
+  @ApiOperation({ summary: 'Create and assign a RESTAURANT_OWNER account to a restaurant' })
+  assignOwner(@Param('id') id: string, @Body() dto: AssignOwnerDto, @CurrentUser() user: JwtUser) {
+    return this.service.assignOwner(id, dto, user.id);
   }
 }

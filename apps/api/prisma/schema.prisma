@@ -26,14 +26,16 @@ enum MarkupType {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  fullName     String
-  role         Role
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String      @id @default(cuid())
+  email            String      @unique
+  passwordHash     String
+  fullName         String
+  role             Role
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  ownedRestaurant  Restaurant?
 }
 
 model AuditLog {
@@ -67,6 +69,9 @@ model Restaurant {
   // Per-restaurant markup override; null means use PlatformPricing global markup
   markupType      MarkupType?
   markupValue     Decimal?          @db.Decimal(10, 2)
+  // Owner link — set by admin; null until an owner is assigned
+  ownerId         String?           @unique
+  owner           User?             @relation(fields: [ownerId], references: [id])
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
