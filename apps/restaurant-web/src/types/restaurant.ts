@@ -26,52 +26,32 @@ export interface Restaurant {
   status: RestaurantStatus;
   isActive: boolean;
   rejectionReason: string | null;
-  // Per-restaurant markup override; null means use global platform pricing
   markupType: MarkupType | null;
-  markupValue: string | null; // Prisma Decimal serialized as string
+  markupValue: string | null;
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface RestaurantOwner {
-  id: string;
-  email: string;
-  fullName: string;
-}
-
 export interface RestaurantWithHours extends Restaurant {
   hours: RestaurantHours[];
-  owner: RestaurantOwner | null;
 }
 
-export interface AssignOwnerPayload {
-  email: string;
-  password: string;
-  fullName: string;
-}
-
-export interface ListMeta {
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-export interface CreateRestaurantPayload {
-  name: string;
+export interface UpdateProfilePayload {
+  name?: string;
   description?: string;
-  addressLine: string;
-  city: string;
-  phone: string;
+  addressLine?: string;
+  city?: string;
+  phone?: string;
   email?: string;
   cuisineType?: string;
   latitude?: number;
   longitude?: number;
 }
 
-export interface ListRestaurantsQuery {
-  status?: RestaurantStatus;
-  isActive?: boolean;
-  search?: string;
-  page?: number;
-  pageSize?: number;
+export interface HoursEntry {
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isClosed: boolean;
 }

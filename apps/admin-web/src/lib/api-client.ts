@@ -1,10 +1,12 @@
 import type { ApiResponse, PriceBreakdown } from '@flavohub/shared';
 import type {
+  AssignOwnerPayload,
   CreateRestaurantPayload,
   ListMeta,
   ListRestaurantsQuery,
   MarkupType,
   Restaurant,
+  RestaurantOwner,
   RestaurantWithHours,
 } from '@/types/restaurant';
 import type {
@@ -129,6 +131,13 @@ export const apiClient = {
 
     deactivate: (token: string, id: string) =>
       apiFetch<Restaurant>(`/admin/restaurants/${id}/deactivate`, { method: 'POST', token }),
+
+    assignOwner: (token: string, id: string, dto: AssignOwnerPayload) =>
+      apiFetch<RestaurantOwner>(`/admin/restaurants/${id}/owner`, {
+        method: 'POST',
+        body: dto,
+        token,
+      }),
   },
 
   pricing: {

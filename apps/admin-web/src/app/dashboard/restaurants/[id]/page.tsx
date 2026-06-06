@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
-import type { MarkupType, RestaurantWithHours } from '@/types/restaurant';
+import type { MarkupType, RestaurantOwner, RestaurantWithHours } from '@/types/restaurant';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -47,6 +47,14 @@ function RestaurantDetailContent() {
   const [markupError, setMarkupError] = useState<string | null>(null);
   const [markupSuccess, setMarkupSuccess] = useState(false);
 
+  // owner assignment state
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerFullName, setOwnerFullName] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
+  const [ownerLoading, setOwnerLoading] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
+  const [assignedOwner, setAssignedOwner] = useState<RestaurantOwner | null>(null);
+
   const loadRestaurant = useCallback(() => {
     if (!accessToken || !id) return;
     setLoading(true);
@@ -64,11 +72,12 @@ function RestaurantDetailContent() {
     loadRestaurant();
   }, [loadRestaurant]);
 
-  // Pre-populate markup form when restaurant data arrives
+  // Pre-populate markup form and owner when restaurant data arrives
   useEffect(() => {
     if (!restaurant) return;
     setOverrideType(restaurant.markupType ?? 'PERCENT');
     setOverrideValue(restaurant.markupValue ?? '');
+    setAssignedOwner(restaurant.owner);
   }, [restaurant]);
 
   async function runAction(action: () => Promise<unknown>) {
@@ -149,6 +158,28 @@ function RestaurantDetailContent() {
       setMarkupError(err instanceof Error ? err.message : 'Failed to clear markup');
     } finally {
       setMarkupLoading(false);
+    }
+  }
+
+  async function handleAssignOwner(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    setOwnerLoading(true);
+    setOwnerError(null);
+    try {
+      const owner = await apiClient.restaurants.assignOwner(accessToken, id, {
+        email: ownerEmail.trim(),
+        password: ownerPassword,
+        fullName: ownerFullName.trim(),
+      });
+      setAssignedOwner(owner);
+      setOwnerEmail('');
+      setOwnerFullName('');
+      setOwnerPassword('');
+    } catch (err) {
+      setOwnerError(err instanceof Error ? err.message : 'Failed to assign owner');
+    } finally {
+      setOwnerLoading(false);
     }
   }
 
@@ -361,6 +392,69 @@ function RestaurantDetailContent() {
               {markupError && <p className="text-sm text-red-600">{markupError}</p>}
               {markupSuccess && <p className="text-sm text-green-600">Markup override updated.</p>}
             </form>
+          </section>
+
+          {/* ── Owner ────────────────────────────────────────────────────── */}
+          <section className="rounded bg-white p-6 shadow">
+            <h2 className="mb-4 text-base font-semibold text-gray-800">Owner Account</h2>
+            {assignedOwner ? (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                <Field label="Full Name" value={assignedOwner.fullName} />
+                <Field label="Email" value={assignedOwner.email} />
+              </dl>
+            ) : (
+              <form onSubmit={(e) => void handleAssignOwner(e)} className="space-y-3">
+                <p className="text-sm text-gray-500">
+                  No owner assigned. Create a RESTAURANT_OWNER account below.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ownerFullName}
+                      onChange={(e) => setOwnerFullName(e.target.value)}
+                      placeholder="Jane Smith"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={ownerEmail}
+                      onChange={(e) => setOwnerEmail(e.target.value)}
+                      placeholder="owner@example.com"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="max-w-xs">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Password</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={ownerPassword}
+                    onChange={(e) => setOwnerPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                    className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                {ownerError && <p className="text-sm text-red-600">{ownerError}</p>}
+                <button
+                  type="submit"
+                  disabled={ownerLoading}
+                  className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {ownerLoading ? 'Creating…' : 'Create & Assign Owner'}
+                </button>
+              </form>
+            )}
           </section>
 
           <section className="rounded bg-white p-6 shadow">

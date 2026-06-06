@@ -1,4 +1,10 @@
 import type { ApiResponse } from '@flavohub/shared';
+import type {
+  HoursEntry,
+  RestaurantHours,
+  RestaurantWithHours,
+  UpdateProfilePayload,
+} from '@/types/restaurant';
 
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
 
@@ -33,4 +39,14 @@ type LoginData = {
 export const apiClient = {
   login: (email: string, password: string) =>
     apiFetch<LoginData>('/auth/login', { method: 'POST', body: { email, password } }),
+
+  restaurant: {
+    getProfile: (token: string) => apiFetch<RestaurantWithHours>('/restaurant/profile', { token }),
+
+    updateProfile: (token: string, dto: UpdateProfilePayload) =>
+      apiFetch<RestaurantWithHours>('/restaurant/profile', { method: 'PATCH', body: dto, token }),
+
+    setHours: (token: string, hours: HoursEntry[]) =>
+      apiFetch<RestaurantHours[]>('/restaurant/hours', { method: 'PUT', body: { hours }, token }),
+  },
 };
