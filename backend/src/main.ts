@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   const config = app.get(AppConfigService);
-  const port = config.port;
+  const port = process.env['PORT'] ?? process.env['API_PORT'] ?? '3000';
   const isDev = config.nodeEnv !== 'production';
   const logger = new Logger('Bootstrap');
 

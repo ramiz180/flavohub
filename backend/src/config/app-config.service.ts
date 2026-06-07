@@ -10,7 +10,7 @@ export class AppConfigService {
   }
 
   get port(): number {
-    return this.configService.getOrThrow<number>('API_PORT');
+    return this.configService.get<number>('API_PORT') ?? 3000;
   }
 
   get databaseUrl(): string | undefined {
