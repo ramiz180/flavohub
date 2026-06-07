@@ -1,4 +1,11 @@
-import { CouponType, MarkupType, PrismaClient, RestaurantStatus, Role } from '@prisma/client';
+import {
+  CouponType,
+  MarkupType,
+  OrderStatus,
+  PrismaClient,
+  RestaurantStatus,
+  Role,
+} from '@prisma/client';
 import { hash } from 'argon2';
 
 const prisma = new PrismaClient();
@@ -160,6 +167,128 @@ async function main(): Promise<void> {
     },
   });
   console.log('Seed: 2 sample coupons upserted (WELCOME10, FLAT50)');
+
+  // ── Burger Barn menu (needed for test orders) ─────────────────────────────
+  const mainCategoryId = 'seed-cat-burgerbarn-main-001';
+  await prisma.menuCategory.upsert({
+    where: { id: mainCategoryId },
+    update: {},
+    create: {
+      id: mainCategoryId,
+      restaurantId: approvedId,
+      name: 'Main Course',
+      sortOrder: 1,
+    },
+  });
+
+  const butterChickenId = 'seed-item-butter-chicken-001';
+  await prisma.menuItem.upsert({
+    where: { id: butterChickenId },
+    update: {},
+    create: {
+      id: butterChickenId,
+      restaurantId: approvedId,
+      categoryId: mainCategoryId,
+      name: 'Butter Chicken',
+      description: 'Creamy tomato-based chicken curry',
+      price: 320,
+      isAvailable: true,
+      sortOrder: 1,
+    },
+  });
+  console.log('Seed: Burger Barn menu item upserted (Butter Chicken)');
+
+  // ── Test orders ───────────────────────────────────────────────────────────
+  const baseAcceptedAt = new Date('2026-06-07T10:05:00.000Z');
+  const basePreparedAt = new Date('2026-06-07T10:20:00.000Z');
+
+  // FH-TEST-001: PLACED — 2x Butter Chicken
+  const order1 = await prisma.order.upsert({
+    where: { orderNumber: 'FH-TEST-001' },
+    update: {},
+    create: {
+      orderNumber: 'FH-TEST-001',
+      restaurantId: approvedId,
+      customerId: null,
+      status: OrderStatus.PLACED,
+      placedAt: new Date('2026-06-07T10:00:00.000Z'),
+    },
+  });
+  if (order1.id) {
+    const existing1 = await prisma.orderItem.count({ where: { orderId: order1.id } });
+    if (existing1 === 0) {
+      await prisma.orderItem.create({
+        data: {
+          orderId: order1.id,
+          menuItemId: butterChickenId,
+          name: 'Butter Chicken',
+          price: 320,
+          quantity: 2,
+        },
+      });
+    }
+  }
+
+  // FH-TEST-002: ACCEPTED — 1x Butter Chicken
+  const order2 = await prisma.order.upsert({
+    where: { orderNumber: 'FH-TEST-002' },
+    update: {},
+    create: {
+      orderNumber: 'FH-TEST-002',
+      restaurantId: approvedId,
+      customerId: null,
+      status: OrderStatus.ACCEPTED,
+      placedAt: new Date('2026-06-07T10:01:00.000Z'),
+      acceptedAt: baseAcceptedAt,
+    },
+  });
+  if (order2.id) {
+    const existing2 = await prisma.orderItem.count({ where: { orderId: order2.id } });
+    if (existing2 === 0) {
+      await prisma.orderItem.create({
+        data: {
+          orderId: order2.id,
+          menuItemId: butterChickenId,
+          name: 'Butter Chicken',
+          price: 320,
+          quantity: 1,
+        },
+      });
+    }
+  }
+
+  // FH-TEST-003: PREPARING — 2x Butter Chicken
+  const order3 = await prisma.order.upsert({
+    where: { orderNumber: 'FH-TEST-003' },
+    update: {},
+    create: {
+      orderNumber: 'FH-TEST-003',
+      restaurantId: approvedId,
+      customerId: null,
+      status: OrderStatus.PREPARING,
+      placedAt: new Date('2026-06-07T10:02:00.000Z'),
+      acceptedAt: baseAcceptedAt,
+      preparedAt: basePreparedAt,
+    },
+  });
+  if (order3.id) {
+    const existing3 = await prisma.orderItem.count({ where: { orderId: order3.id } });
+    if (existing3 === 0) {
+      await prisma.orderItem.create({
+        data: {
+          orderId: order3.id,
+          menuItemId: butterChickenId,
+          name: 'Butter Chicken',
+          price: 320,
+          quantity: 2,
+        },
+      });
+    }
+  }
+
+  console.log(
+    'Seed: 3 test orders upserted (FH-TEST-001 PLACED, FH-TEST-002 ACCEPTED, FH-TEST-003 PREPARING)',
+  );
 }
 
 main()

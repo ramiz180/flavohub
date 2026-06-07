@@ -36,6 +36,7 @@ model User {
   updatedAt        DateTime    @updatedAt
 
   ownedRestaurant  Restaurant?
+  orders           Order[]
 }
 
 model AuditLog {
@@ -78,6 +79,7 @@ model Restaurant {
   hours           RestaurantHours[]
   menuCategories  MenuCategory[]
   menuItems       MenuItem[]
+  orders          Order[]
 }
 
 model MenuCategory {
@@ -178,4 +180,56 @@ model PlatformPricing {
   surgeFee          Decimal    @db.Decimal(10, 2)
   surgeEnabled      Boolean    @default(false)
   updatedAt         DateTime   @updatedAt
+}
+
+enum OrderStatus {
+  PLACED
+  ACCEPTED
+  REJECTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  orderNumber         String      @unique
+  restaurantId        String
+  restaurant          Restaurant  @relation(fields: [restaurantId], references: [id])
+  customerId          String?
+  customer            User?       @relation(fields: [customerId], references: [id])
+  status              OrderStatus @default(PLACED)
+  subtotal            Decimal?    @db.Decimal(10, 2)
+  markupAmount        Decimal?    @db.Decimal(10, 2)
+  deliveryFee         Decimal?    @db.Decimal(10, 2)
+  surgeFee            Decimal?    @db.Decimal(10, 2)
+  discountAmount      Decimal?    @db.Decimal(10, 2)
+  total               Decimal?    @db.Decimal(10, 2)
+  deliveryAddress     Json?
+  specialInstructions String?
+  rejectionReason     String?
+  placedAt            DateTime    @default(now())
+  acceptedAt          DateTime?
+  preparedAt          DateTime?
+  readyAt             DateTime?
+  deliveredAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  items               OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String?
+  name       String
+  price      Decimal  @db.Decimal(10, 2)
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
 }
