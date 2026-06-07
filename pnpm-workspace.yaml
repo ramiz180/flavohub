@@ -1,5 +1,7 @@
 packages:
-  - 'apps/*'
+  - 'backend'
+  - 'web-dashboard/admin'
+  - 'web-dashboard/restaurant'
   - 'packages/*'
 allowBuilds:
   '@nestjs/core': true

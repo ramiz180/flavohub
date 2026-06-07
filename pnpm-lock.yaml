@@ -35,51 +35,11 @@ importers:
         specifier: ^8.20.0
         version: 8.60.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
 
-  apps/admin-web:
+  backend:
     dependencies:
       '@flavohub/shared':
         specifier: workspace:*
-        version: link:../../packages/shared
-      next:
-        specifier: '15'
-        version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.6
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.6(react@19.2.6)
-    devDependencies:
-      '@flavohub/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.19
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.15
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.3(@types/react@19.2.15)
-      autoprefixer:
-        specifier: ^10.4.0
-        version: 10.5.0(postcss@8.5.15)
-      postcss:
-        specifier: ^8.4.0
-        version: 8.5.15
-      tailwindcss:
-        specifier: ^3.4.0
-        version: 3.4.19(yaml@2.9.0)
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-
-  apps/api:
-    dependencies:
-      '@flavohub/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
+        version: link:../packages/shared
       '@nestjs/common':
         specifier: ^10.4.0
         version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -140,7 +100,7 @@ importers:
     devDependencies:
       '@flavohub/config':
         specifier: workspace:*
-        version: link:../../packages/config
+        version: link:../packages/config
       '@nestjs/cli':
         specifier: ^10.4.0
         version: 10.4.9
@@ -175,7 +135,58 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  apps/restaurant-web:
+  packages/config: {}
+
+  packages/shared:
+    devDependencies:
+      '@flavohub/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  web-dashboard/admin:
+    dependencies:
+      '@flavohub/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      next:
+        specifier: '15'
+        version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.6(react@19.2.6)
+    devDependencies:
+      '@flavohub/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.15
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.15)
+      autoprefixer:
+        specifier: ^10.4.0
+        version: 10.5.0(postcss@8.5.15)
+      postcss:
+        specifier: ^8.4.0
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19(yaml@2.9.0)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  web-dashboard/restaurant:
     dependencies:
       '@flavohub/shared':
         specifier: workspace:*
@@ -216,17 +227,6 @@ importers:
         version: 3.4.19(yaml@2.9.0)
       typescript:
         specifier: ^5.7.0
-        version: 5.9.3
-
-  packages/config: {}
-
-  packages/shared:
-    devDependencies:
-      '@flavohub/config':
-        specifier: workspace:*
-        version: link:../config
-      typescript:
-        specifier: ^5.7.3
         version: 5.9.3
 
 packages:
