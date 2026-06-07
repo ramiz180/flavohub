@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { HealthModule } from './health/health.module';
+import { MenuModule } from './menu/menu.module';
 import { OwnerRestaurantModule } from './owner-restaurant/owner-restaurant.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -20,6 +21,7 @@ import { SettingsModule } from './settings/settings.module';
     AdminModule,
     RestaurantsModule,
     OwnerRestaurantModule,
+    MenuModule,
     PricingModule,
     CouponsModule,
     SettingsModule,
