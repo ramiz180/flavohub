@@ -14,6 +14,7 @@ import type {
   UpdateCategoryPayload,
   UpdateItemPayload,
 } from '@/types/menu';
+import type { Order } from '@/types/order';
 
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
 
@@ -105,5 +106,31 @@ export const apiClient = {
 
     deleteItem: (token: string, id: string) =>
       apiFetch<void>(`/restaurant/menu/items/${id}`, { method: 'DELETE', token }),
+  },
+
+  orders: {
+    list: (token: string, params?: { pageSize?: number }) => {
+      const qs = params?.pageSize ? `?pageSize=${params.pageSize}` : '';
+      return apiFetch<Order[]>(`/restaurant/orders${qs}`, { token });
+    },
+
+    accept: (token: string, id: string) =>
+      apiFetch<Order>(`/restaurant/orders/${id}/accept`, { method: 'POST', token }),
+
+    reject: (token: string, id: string, reason: string) =>
+      apiFetch<Order>(`/restaurant/orders/${id}/reject`, {
+        method: 'POST',
+        body: { reason },
+        token,
+      }),
+
+    startPreparing: (token: string, id: string) =>
+      apiFetch<Order>(`/restaurant/orders/${id}/start-preparing`, { method: 'POST', token }),
+
+    markReady: (token: string, id: string) =>
+      apiFetch<Order>(`/restaurant/orders/${id}/ready`, { method: 'POST', token }),
+
+    markDelivered: (token: string, id: string) =>
+      apiFetch<Order>(`/restaurant/orders/${id}/delivered`, { method: 'POST', token }),
   },
 };
