@@ -233,3 +233,42 @@ model OrderItem {
 
   @@index([orderId])
 }
+
+model Customer {
+  id        String            @id @default(uuid())
+  phone     String            @unique
+  name      String?
+  email     String?
+  isGuest   Boolean           @default(false)
+  isActive  Boolean           @default(true)
+  addresses CustomerAddress[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model CustomerOtp {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+model CustomerAddress {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label       String   @default("Home")
+  addressLine String
+  city        String
+  state       String
+  pincode     String
+  lat         Float?
+  lng         Float?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -4,6 +4,9 @@ import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { CouponsModule } from './coupons/coupons.module';
+import { CustomerAddressModule } from './customer-address/customer-address.module';
+import { CustomerAuthModule } from './customer-auth/customer-auth.module';
+import { CustomerProfileModule } from './customer-profile/customer-profile.module';
 import { HealthModule } from './health/health.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
@@ -28,6 +31,9 @@ import { SettingsModule } from './settings/settings.module';
     SettingsModule,
     HealthModule,
     OrdersModule,
+    CustomerAuthModule,
+    CustomerProfileModule,
+    CustomerAddressModule,
   ],
 })
 export class AppModule {}
