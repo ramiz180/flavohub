@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
+import { KeepaliveService } from './common/keepalive.service';
 import { CouponsModule } from './coupons/coupons.module';
 import { CustomerAddressModule } from './customer-address/customer-address.module';
 import { CustomerAuthModule } from './customer-auth/customer-auth.module';
@@ -18,6 +20,7 @@ import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     AppConfigModule,
     PrismaModule,
     AuditModule,
@@ -35,5 +38,6 @@ import { SettingsModule } from './settings/settings.module';
     CustomerProfileModule,
     CustomerAddressModule,
   ],
+  providers: [KeepaliveService],
 })
 export class AppModule {}

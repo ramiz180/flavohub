@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { Role } from '@flavohub/shared';
 import { apiClient } from './api-client';
@@ -30,6 +30,14 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ currentUser: null, accessToken: null });
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      setState({ currentUser: null, accessToken: null });
+    }
+    window.addEventListener('flavohub:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('flavohub:unauthorized', handleUnauthorized);
+  }, []);
 
   async function login(email: string, password: string): Promise<void> {
     const data = await apiClient.login(email, password);

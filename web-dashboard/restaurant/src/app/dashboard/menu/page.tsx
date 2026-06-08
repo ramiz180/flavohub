@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import AuthGuard from '@/components/auth-guard';
+import ImageUploadWithCrop from '@/components/ImageUploadWithCrop';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import type { MenuCategoryWithItems, MenuItem } from '@/types/menu';
@@ -318,14 +319,14 @@ export default function MenuPage() {
                         placeholder="Description (optional)"
                         className="col-span-2 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
-                      <input
-                        value={editItemForm.imageUrl}
-                        onChange={(e) =>
-                          setEditItemForm((f) => ({ ...f, imageUrl: e.target.value }))
-                        }
-                        placeholder="Image URL (optional)"
-                        className="col-span-2 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="col-span-2">
+                        <ImageUploadWithCrop
+                          initialUrl={editItemForm.imageUrl}
+                          onUploadComplete={(url) =>
+                            setEditItemForm((f) => ({ ...f, imageUrl: url }))
+                          }
+                        />
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -414,12 +415,11 @@ export default function MenuPage() {
                     placeholder="Description (optional)"
                     className="col-span-2 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
-                  <input
-                    value={newItemForm.imageUrl}
-                    onChange={(e) => setNewItemForm((f) => ({ ...f, imageUrl: e.target.value }))}
-                    placeholder="Image URL (optional)"
-                    className="col-span-2 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <div className="col-span-2">
+                    <ImageUploadWithCrop
+                      onUploadComplete={(url) => setNewItemForm((f) => ({ ...f, imageUrl: url }))}
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button

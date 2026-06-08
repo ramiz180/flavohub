@@ -16,6 +16,13 @@ import type {
 } from '@/types/menu';
 import type { Order } from '@/types/order';
 
+export class AuthError extends Error {
+  constructor() {
+    super('Session expired. Please log in again.');
+    this.name = 'AuthError';
+  }
+}
+
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
 
 async function apiFetch<T>(
@@ -31,13 +38,25 @@ async function apiFetch<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('flavohub:unauthorized'));
+    }
+    throw new AuthError();
+  }
+
   // 204 No Content or empty body — treat as success with no data
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
   if (!text) return undefined as T;
 
-  const json = JSON.parse(text) as ApiResponse<T>;
+  let json: ApiResponse<T>;
+  try {
+    json = JSON.parse(text) as ApiResponse<T>;
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
 
   if (!json.success) {
     throw new Error(json.error.message);

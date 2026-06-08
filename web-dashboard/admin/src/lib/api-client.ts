@@ -26,7 +26,20 @@ import type {
   UpdateSettingsPayload,
 } from '@/types/coupon';
 
+export class AuthError extends Error {
+  constructor() {
+    super('Session expired. Please log in again.');
+    this.name = 'AuthError';
+  }
+}
+
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
+
+function dispatchUnauthorized(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('flavohub:unauthorized'));
+  }
+}
 
 async function apiFetch<T>(
   path: string,
@@ -41,7 +54,17 @@ async function apiFetch<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  const json = (await res.json()) as ApiResponse<T>;
+  if (res.status === 401) {
+    dispatchUnauthorized();
+    throw new AuthError();
+  }
+
+  let json: ApiResponse<T>;
+  try {
+    json = (await res.json()) as ApiResponse<T>;
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
 
   if (!json.success) {
     throw new Error(json.error.message);
@@ -68,7 +91,18 @@ async function apiFetchList<T>(
   }
 
   const res = await fetch(url.toString(), { method: 'GET', headers });
-  const json = (await res.json()) as ApiResponse<T[]>;
+
+  if (res.status === 401) {
+    dispatchUnauthorized();
+    throw new AuthError();
+  }
+
+  let json: ApiResponse<T[]>;
+  try {
+    json = (await res.json()) as ApiResponse<T[]>;
+  } catch {
+    throw new Error(`Server error (${res.status})`);
+  }
 
   if (!json.success) {
     throw new Error(json.error.message);

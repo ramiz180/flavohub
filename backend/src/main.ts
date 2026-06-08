@@ -17,6 +17,8 @@ async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
 
   const corsOrigins = process.env['CORS_ORIGINS']?.split(',').map((o) => o.trim()) ?? [
+    'https://flavohub-admin.vercel.app',
+    'https://flavohub-restaurant.vercel.app',
     'http://localhost:3001',
     'http://localhost:3002',
   ];
