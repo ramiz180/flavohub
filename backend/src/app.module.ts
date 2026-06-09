@@ -9,6 +9,7 @@ import { CouponsModule } from './coupons/coupons.module';
 import { CustomerAddressModule } from './customer-address/customer-address.module';
 import { CustomerAuthModule } from './customer-auth/customer-auth.module';
 import { CustomerProfileModule } from './customer-profile/customer-profile.module';
+import { CustomerRestaurantModule } from './customer-restaurant/customer-restaurant.module';
 import { HealthModule } from './health/health.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
@@ -37,6 +38,7 @@ import { SettingsModule } from './settings/settings.module';
     CustomerAuthModule,
     CustomerProfileModule,
     CustomerAddressModule,
+    CustomerRestaurantModule,
   ],
   providers: [KeepaliveService],
 })
