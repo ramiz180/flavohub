@@ -55,10 +55,24 @@ export class RestaurantGateway implements OnGatewayConnection, OnGatewayDisconne
       return;
     }
 
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { ownerId: payload.id },
-      select: { id: true },
-    });
+    if (!payload.id) {
+      socket.disconnect(true);
+      return;
+    }
+
+    let restaurant: { id: string } | null;
+    try {
+      restaurant = await this.prisma.restaurant.findUnique({
+        where: { ownerId: payload.id },
+        select: { id: true },
+      });
+    } catch (error) {
+      this.logger.warn(
+        'Gateway connection error: ' + (error instanceof Error ? error.message : String(error)),
+      );
+      socket.disconnect(true);
+      return;
+    }
 
     if (!restaurant) {
       socket.emit('error', { message: 'No restaurant linked to this account' });
