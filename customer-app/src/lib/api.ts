@@ -40,6 +40,76 @@ apiClient.interceptors.response.use(
   },
 );
 
+// ─── Restaurant Discovery ────────────────────────────────────────────
+export const getNearbyRestaurants = async (lat: number, lng: number, radius = 10) => {
+  const res = await apiClient.get('/customer/restaurants/nearby', {
+    params: { lat, lng, radius },
+  });
+  return res.data.data as NearbyRestaurant[];
+};
+
+export const getRestaurantById = async (id: string) => {
+  const res = await apiClient.get(`/customer/restaurants/${id}`);
+  return res.data.data as Restaurant;
+};
+
+export const getRestaurantMenu = async (id: string) => {
+  const res = await apiClient.get(`/customer/restaurants/${id}/menu`);
+  return res.data.data as MenuCategory[];
+};
+
+// ─── Types ───────────────────────────────────────────────────────────
+export interface NearbyRestaurant {
+  id: string;
+  name: string;
+  cuisineType: string;
+  logoUrl: string | null;
+  addressLine: string;
+  city: string;
+  isActive: boolean;
+  status: string;
+  distance: number;
+}
+
+export interface RestaurantHours {
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isClosed: boolean;
+}
+
+export interface Restaurant {
+  id: string;
+  name: string;
+  description: string | null;
+  cuisineType: string;
+  logoUrl: string | null;
+  addressLine: string;
+  city: string;
+  phone: string | null;
+  isActive: boolean;
+  status: string;
+  latitude: number;
+  longitude: number;
+  hours: RestaurantHours[];
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string;
+  imageUrl: string | null;
+  isAvailable: boolean;
+}
+
+export interface MenuCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+  items: MenuItem[];
+}
+
 export const customerApi = {
   auth: {
     requestOtp: (phone: string) => apiClient.post('/customer/auth/otp/request', { phone }),
