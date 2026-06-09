@@ -10,6 +10,7 @@ import { ListRestaurantsQueryDto } from './dto/list-restaurants-query.dto';
 import { RejectRestaurantDto } from './dto/reject-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { AssignOwnerDto } from './dto/assign-owner.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 export type SafeOwner = { id: string; email: string; fullName: string };
 
@@ -206,6 +207,35 @@ export class RestaurantsService {
       after: { isActive: updated.isActive },
     });
     return updated;
+  }
+
+  async resetOwnerPassword(
+    restaurantId: string,
+    dto: ResetPasswordDto,
+    actorId: string,
+  ): Promise<{ message: string }> {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { ownerId: true },
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    if (!restaurant.ownerId) throw new NotFoundException('No owner assigned to this restaurant');
+
+    const passwordHash = await hash(dto.newPassword);
+    await this.prisma.user.update({
+      where: { id: restaurant.ownerId },
+      data: { passwordHash },
+    });
+
+    await this.auditLog.log({
+      actorId,
+      action: 'RESET_PASSWORD',
+      entityType: 'User',
+      entityId: restaurant.ownerId,
+      after: { performedBy: actorId },
+    });
+
+    return { message: 'Password reset successfully' };
   }
 
   private async findOrThrow(id: string): Promise<Restaurant> {

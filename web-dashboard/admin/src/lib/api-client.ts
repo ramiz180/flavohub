@@ -172,6 +172,13 @@ export const apiClient = {
         body: dto,
         token,
       }),
+
+    resetOwnerPassword: (token: string, id: string, newPassword: string) =>
+      apiFetch<{ message: string }>(`/admin/restaurants/${id}/reset-password`, {
+        method: 'PATCH',
+        body: { newPassword },
+        token,
+      }),
   },
 
   pricing: {

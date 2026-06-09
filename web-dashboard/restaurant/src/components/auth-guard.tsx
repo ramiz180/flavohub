@@ -6,14 +6,22 @@ import type { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth-context';
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, isInitializing } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!isInitializing && !currentUser) {
       router.replace('/login');
     }
-  }, [currentUser, router]);
+  }, [currentUser, isInitializing, router]);
+
+  if (isInitializing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">Loading…</p>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (

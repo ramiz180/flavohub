@@ -21,6 +21,7 @@ import { AssignOwnerDto } from './dto/assign-owner.dto';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { ListRestaurantsQueryDto } from './dto/list-restaurants-query.dto';
 import { RejectRestaurantDto } from './dto/reject-restaurant.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { RestaurantsService } from './restaurants.service';
 
@@ -88,5 +89,16 @@ export class RestaurantsController {
   @ApiOperation({ summary: 'Create and assign a RESTAURANT_OWNER account to a restaurant' })
   assignOwner(@Param('id') id: string, @Body() dto: AssignOwnerDto, @CurrentUser() user: JwtUser) {
     return this.service.assignOwner(id, dto, user.id);
+  }
+
+  @Patch(':id/reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset the password of the restaurant owner account' })
+  resetOwnerPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetPasswordDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.resetOwnerPassword(id, dto, user.id);
   }
 }

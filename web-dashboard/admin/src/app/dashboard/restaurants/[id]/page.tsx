@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
+import PasswordInput from '@/components/password-input';
 import type { MarkupType, RestaurantOwner, RestaurantWithHours } from '@/types/restaurant';
 
 const STATUS_COLORS = {
@@ -54,6 +55,13 @@ function RestaurantDetailContent() {
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
   const [assignedOwner, setAssignedOwner] = useState<RestaurantOwner | null>(null);
+
+  // reset password state
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const loadRestaurant = useCallback(() => {
     if (!accessToken || !id) return;
@@ -180,6 +188,26 @@ function RestaurantDetailContent() {
       setOwnerError(err instanceof Error ? err.message : 'Failed to assign owner');
     } finally {
       setOwnerLoading(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!accessToken || !resetPassword) return;
+    setResetLoading(true);
+    setResetError(null);
+    setResetSuccess(false);
+    try {
+      await apiClient.restaurants.resetOwnerPassword(accessToken, id, resetPassword);
+      setResetSuccess(true);
+      setResetPassword('');
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetSuccess(false);
+      }, 1500);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : 'Failed to reset password');
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -398,10 +426,23 @@ function RestaurantDetailContent() {
           <section className="rounded bg-white p-6 shadow">
             <h2 className="mb-4 text-base font-semibold text-gray-800">Owner Account</h2>
             {assignedOwner ? (
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-                <Field label="Full Name" value={assignedOwner.fullName} />
-                <Field label="Email" value={assignedOwner.email} />
-              </dl>
+              <div>
+                <dl className="mb-4 grid grid-cols-2 gap-x-6 gap-y-4">
+                  <Field label="Full Name" value={assignedOwner.fullName} />
+                  <Field label="Email" value={assignedOwner.email} />
+                </dl>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(true);
+                    setResetError(null);
+                    setResetSuccess(false);
+                  }}
+                  className="rounded bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+                >
+                  Reset Password
+                </button>
+              </div>
             ) : (
               <form onSubmit={(e) => void handleAssignOwner(e)} className="space-y-3">
                 <p className="text-sm text-gray-500">
@@ -435,13 +476,13 @@ function RestaurantDetailContent() {
                 </div>
                 <div className="max-w-xs">
                   <label className="mb-1 block text-xs font-medium text-gray-600">Password</label>
-                  <input
-                    type="password"
+                  <PasswordInput
+                    value={ownerPassword}
+                    onChange={setOwnerPassword}
                     required
                     minLength={8}
-                    value={ownerPassword}
-                    onChange={(e) => setOwnerPassword(e.target.value)}
                     placeholder="Min 8 characters"
+                    autoComplete="new-password"
                     className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -508,6 +549,7 @@ function RestaurantDetailContent() {
         </div>
       </div>
 
+      {/* ── Reject Modal ─────────────────────────────────────────────── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded bg-white p-6 shadow-lg">
@@ -539,6 +581,53 @@ function RestaurantDetailContent() {
               >
                 {actionLoading ? 'Rejecting…' : 'Reject'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset Password Modal ─────────────────────────────────────── */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-sm rounded bg-white p-6 shadow-lg">
+            <h3 className="mb-3 text-base font-semibold">Reset Owner Password</h3>
+            {resetSuccess ? (
+              <p className="text-sm text-green-600">Password reset successfully.</p>
+            ) : (
+              <>
+                <label className="mb-1 block text-sm font-medium text-gray-700">New Password</label>
+                <PasswordInput
+                  value={resetPassword}
+                  onChange={setResetPassword}
+                  placeholder="Min 8 characters"
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                {resetError && <p className="mt-2 text-sm text-red-600">{resetError}</p>}
+              </>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowResetModal(false);
+                  setResetPassword('');
+                  setResetError(null);
+                  setResetSuccess(false);
+                }}
+                className="rounded border px-3 py-1.5 text-sm hover:bg-gray-100"
+              >
+                {resetSuccess ? 'Close' : 'Cancel'}
+              </button>
+              {!resetSuccess && (
+                <button
+                  onClick={() => void handleResetPassword()}
+                  disabled={resetLoading || resetPassword.length < 8}
+                  className="rounded bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40"
+                >
+                  {resetLoading ? 'Resetting…' : 'Reset Password'}
+                </button>
+              )}
             </div>
           </div>
         </div>
