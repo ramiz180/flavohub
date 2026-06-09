@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NearbyQueryDto } from './dto/nearby-query.dto';
 
-interface NearbyRestaurant {
+export interface NearbyRestaurant {
   id: string;
   name: string;
   cuisineType: string | null;

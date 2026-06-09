@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CustomerRestaurantService } from './customer-restaurant.service';
+import { CustomerRestaurantService, NearbyRestaurant } from './customer-restaurant.service';
 import { NearbyQueryDto } from './dto/nearby-query.dto';
 
 @ApiTags('customer-restaurants')
@@ -10,7 +10,7 @@ export class CustomerRestaurantController {
 
   @Get('nearby')
   @ApiOperation({ summary: 'Get nearby restaurants by coordinates' })
-  findNearby(@Query() query: NearbyQueryDto) {
+  findNearby(@Query() query: NearbyQueryDto): Promise<NearbyRestaurant[]> {
     return this.service.findNearby(query);
   }
 
