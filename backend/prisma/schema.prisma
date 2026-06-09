@@ -70,6 +70,7 @@ model Restaurant {
   // Per-restaurant markup override; null means use PlatformPricing global markup
   markupType      MarkupType?
   markupValue     Decimal?          @db.Decimal(10, 2)
+  logoUrl         String?
   // Owner link — set by admin; null until an owner is assigned
   ownerId         String?           @unique
   owner           User?             @relation(fields: [ownerId], references: [id])

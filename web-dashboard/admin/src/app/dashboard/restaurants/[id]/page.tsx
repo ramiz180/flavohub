@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
 import PasswordInput from '@/components/password-input';
+import ImageUploadWithCrop from '@/components/ImageUploadWithCrop';
 import type { MarkupType, RestaurantOwner, RestaurantWithHours } from '@/types/restaurant';
 
 const STATUS_COLORS = {
@@ -56,6 +57,12 @@ function RestaurantDetailContent() {
   const [ownerError, setOwnerError] = useState<string | null>(null);
   const [assignedOwner, setAssignedOwner] = useState<RestaurantOwner | null>(null);
 
+  // logo state
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [logoSaving, setLogoSaving] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [logoSuccess, setLogoSuccess] = useState(false);
+
   // reset password state
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPassword, setResetPassword] = useState('');
@@ -80,12 +87,13 @@ function RestaurantDetailContent() {
     loadRestaurant();
   }, [loadRestaurant]);
 
-  // Pre-populate markup form and owner when restaurant data arrives
+  // Pre-populate markup form, owner, and logo when restaurant data arrives
   useEffect(() => {
     if (!restaurant) return;
     setOverrideType(restaurant.markupType ?? 'PERCENT');
     setOverrideValue(restaurant.markupValue ?? '');
     setAssignedOwner(restaurant.owner);
+    setLogoUrl(restaurant.logoUrl ?? '');
   }, [restaurant]);
 
   async function runAction(action: () => Promise<unknown>) {
@@ -208,6 +216,23 @@ function RestaurantDetailContent() {
       setResetError(err instanceof Error ? err.message : 'Failed to reset password');
     } finally {
       setResetLoading(false);
+    }
+  }
+
+  async function handleSaveLogo() {
+    if (!accessToken) return;
+    setLogoSaving(true);
+    setLogoError(null);
+    setLogoSuccess(false);
+    try {
+      await apiClient.restaurants.update(accessToken, id, { logoUrl: logoUrl || null });
+      loadRestaurant();
+      setLogoSuccess(true);
+      setTimeout(() => setLogoSuccess(false), 3000);
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : 'Failed to save logo');
+    } finally {
+      setLogoSaving(false);
     }
   }
 
@@ -340,6 +365,27 @@ function RestaurantDetailContent() {
                 </div>
               )}
             </dl>
+
+            <div className="mt-6 border-t pt-4">
+              <ImageUploadWithCrop
+                label="Restaurant Logo"
+                aspectRatio={1}
+                currentImageUrl={logoUrl || undefined}
+                onUploadComplete={(url) => setLogoUrl(url)}
+              />
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleSaveLogo()}
+                  disabled={logoSaving}
+                  className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {logoSaving ? '…' : 'Save Logo'}
+                </button>
+                {logoError && <p className="text-sm text-red-600">{logoError}</p>}
+                {logoSuccess && <p className="text-sm text-green-600">Logo saved.</p>}
+              </div>
+            </div>
           </section>
 
           <section className="rounded bg-white p-6 shadow">

@@ -26,6 +26,7 @@ export interface Restaurant {
   status: RestaurantStatus;
   isActive: boolean;
   rejectionReason: string | null;
+  logoUrl: string | null;
   markupType: MarkupType | null;
   markupValue: string | null;
   ownerId: string | null;

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
+import ImageUploadWithCrop from '@/components/ImageUploadWithCrop';
 import type { CreateRestaurantPayload } from '@/types/restaurant';
 
 function CreateRestaurantContent() {
@@ -34,6 +35,7 @@ function CreateRestaurantContent() {
     longitude: '',
   });
 
+  const [logoUrl, setLogoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +68,7 @@ function CreateRestaurantContent() {
       const lng = parseFloat(form.longitude);
       if (!isNaN(lng)) payload.longitude = lng;
     }
+    if (logoUrl.trim()) payload.logoUrl = logoUrl.trim();
 
     try {
       const restaurant = await apiClient.restaurants.create(accessToken, payload);
@@ -208,6 +211,13 @@ function CreateRestaurantContent() {
                 />
               </div>
             </div>
+
+            <ImageUploadWithCrop
+              label="Restaurant Logo"
+              aspectRatio={1}
+              currentImageUrl={logoUrl || undefined}
+              onUploadComplete={(url) => setLogoUrl(url)}
+            />
           </div>
 
           <div className="mt-6 flex items-center justify-end gap-3">

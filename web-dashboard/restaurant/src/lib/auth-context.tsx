@@ -12,15 +12,22 @@ interface CurrentUser {
   role: Role;
 }
 
+interface RestaurantProfile {
+  name: string;
+  logoUrl: string | null;
+}
+
 interface AuthState {
   currentUser: CurrentUser | null;
   accessToken: string | null;
+  restaurantProfile: RestaurantProfile | null;
   isInitializing: boolean;
 }
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  setRestaurantProfile: (profile: RestaurantProfile) => void;
 }
 
 const STORAGE_KEY = 'flavohub:restaurant:session';
@@ -31,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     currentUser: null,
     accessToken: null,
+    restaurantProfile: null,
     isInitializing: true,
   });
   const initDone = useRef(false);
@@ -38,7 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function handleUnauthorized() {
       sessionStorage.removeItem(STORAGE_KEY);
-      setState({ currentUser: null, accessToken: null, isInitializing: false });
+      setState({
+        currentUser: null,
+        accessToken: null,
+        restaurantProfile: null,
+        isInitializing: false,
+      });
     }
     window.addEventListener('flavohub:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('flavohub:unauthorized', handleUnauthorized);
@@ -67,17 +80,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     apiClient.restaurant
       .getProfile(accessToken)
-      .then(() => {
-        setState({ currentUser, accessToken, isInitializing: false });
+      .then((profile) => {
+        setState({
+          currentUser,
+          accessToken,
+          restaurantProfile: { name: profile.name, logoUrl: profile.logoUrl ?? null },
+          isInitializing: false,
+        });
       })
       .catch((err: unknown) => {
         if (err instanceof AuthError) {
           // Genuine 401 — token is invalid, force re-login
           sessionStorage.removeItem(STORAGE_KEY);
-          setState({ currentUser: null, accessToken: null, isInitializing: false });
+          setState({
+            currentUser: null,
+            accessToken: null,
+            restaurantProfile: null,
+            isInitializing: false,
+          });
         } else {
           // Network error, 5xx, timeout etc. — keep user logged in
-          setState({ currentUser, accessToken, isInitializing: false });
+          setState({ currentUser, accessToken, restaurantProfile: null, isInitializing: false });
         }
       });
   }, []);
@@ -90,20 +113,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName: data.user.fullName,
       role: data.user.role as unknown as Role,
     };
+    const profile = await apiClient.restaurant.getProfile(data.accessToken);
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ accessToken: data.accessToken, currentUser }),
     );
-    setState({ currentUser, accessToken: data.accessToken, isInitializing: false });
+    setState({
+      currentUser,
+      accessToken: data.accessToken,
+      restaurantProfile: { name: profile.name, logoUrl: profile.logoUrl ?? null },
+      isInitializing: false,
+    });
   }
 
   function logout(): void {
     sessionStorage.removeItem(STORAGE_KEY);
-    setState({ currentUser: null, accessToken: null, isInitializing: false });
+    setState({
+      currentUser: null,
+      accessToken: null,
+      restaurantProfile: null,
+      isInitializing: false,
+    });
+  }
+
+  function setRestaurantProfile(profile: RestaurantProfile): void {
+    setState((prev) => ({ ...prev, restaurantProfile: profile }));
   }
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ ...state, login, logout, setRestaurantProfile }}>
+      {children}
+    </AuthContext.Provider>
   );
 }
 

@@ -26,6 +26,7 @@ export interface Restaurant {
   status: RestaurantStatus;
   isActive: boolean;
   rejectionReason: string | null;
+  logoUrl: string | null;
   // Per-restaurant markup override; null means use global platform pricing
   markupType: MarkupType | null;
   markupValue: string | null; // Prisma Decimal serialized as string
@@ -66,6 +67,11 @@ export interface CreateRestaurantPayload {
   cuisineType?: string;
   latitude?: number;
   longitude?: number;
+  logoUrl?: string;
+}
+
+export interface UpdateRestaurantPayload {
+  logoUrl?: string | null;
 }
 
 export interface ListRestaurantsQuery {

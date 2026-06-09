@@ -8,6 +8,7 @@ import type {
   Restaurant,
   RestaurantOwner,
   RestaurantWithHours,
+  UpdateRestaurantPayload,
 } from '@/types/restaurant';
 import type {
   PlatformPricing,
@@ -149,6 +150,9 @@ export const apiClient = {
 
     create: (token: string, dto: CreateRestaurantPayload) =>
       apiFetch<Restaurant>('/admin/restaurants', { method: 'POST', body: dto, token }),
+
+    update: (token: string, id: string, dto: UpdateRestaurantPayload) =>
+      apiFetch<Restaurant>(`/admin/restaurants/${id}`, { method: 'PATCH', body: dto, token }),
 
     approve: (token: string, id: string) =>
       apiFetch<Restaurant>(`/admin/restaurants/${id}/approve`, { method: 'POST', token }),
