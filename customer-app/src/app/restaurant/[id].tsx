@@ -37,21 +37,26 @@ export default function RestaurantScreen() {
   }, [id]);
 
   const renderMenuItem = ({ item }: { item: MenuItem }) => (
-    <View style={styles.menuItem}>
-      <View style={styles.menuItemInfo}>
-        <Text style={styles.menuItemName}>{item.name}</Text>
-        {item.description ? (
-          <Text style={styles.menuItemDesc} numberOfLines={2}>
-            {item.description}
-          </Text>
-        ) : null}
-        <Text style={styles.menuItemPrice}>₹{parseInt(item.price, 10)}</Text>
+    <TouchableOpacity
+      activeOpacity={0.75}
+      onPress={() => console.log('Add to cart:', item.id, item.name)}
+    >
+      <View style={styles.menuItem}>
+        <View style={styles.menuItemInfo}>
+          <Text style={styles.menuItemName}>{item.name}</Text>
+          {item.description ? (
+            <Text style={styles.menuItemDesc} numberOfLines={2}>
+              {item.description}
+            </Text>
+          ) : null}
+          <Text style={styles.menuItemPrice}>₹{parseInt(item.price, 10)}</Text>
+        </View>
+        {/* Image placeholder — will add real image in later phase */}
+        <View style={styles.menuItemImage}>
+          <Text style={{ fontSize: 28 }}>🍴</Text>
+        </View>
       </View>
-      {/* Image placeholder — will add real image in later phase */}
-      <View style={styles.menuItemImage}>
-        <Text style={{ fontSize: 28 }}>🍴</Text>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderSectionHeader = ({ section }: { section: { title: string } }) => (
