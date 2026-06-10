@@ -131,3 +131,83 @@ export const customerApi = {
     setDefault: (id: string) => apiClient.patch(`/customer/addresses/${id}/default`),
   },
 };
+
+// ─── Cart API ─────────────────────────────────────────────────────────
+export interface CartItem {
+  id: string;
+  cartId: string;
+  menuItemId: string;
+  quantity: number;
+  menuItem: {
+    id: string;
+    name: string;
+    price: string;
+    imageUrl: string | null;
+    restaurantId: string;
+  };
+}
+
+export interface Cart {
+  id?: string;
+  items: CartItem[];
+  total: number;
+  restaurantId: string | null;
+}
+
+export const getCart = async (): Promise<Cart> => {
+  const res = await apiClient.get('/customer/cart');
+  return res.data.data as Cart;
+};
+
+export const addToCart = async (menuItemId: string, quantity = 1): Promise<Cart> => {
+  const res = await apiClient.post('/customer/cart/items', { menuItemId, quantity });
+  return res.data.data as Cart;
+};
+
+export const updateCartItem = async (menuItemId: string, quantity: number): Promise<Cart> => {
+  const res = await apiClient.patch(`/customer/cart/items/${menuItemId}`, {
+    quantity,
+  });
+  return res.data.data as Cart;
+};
+
+export const clearCart = async (): Promise<void> => {
+  await apiClient.delete('/customer/cart');
+};
+
+export const placeOrder = async (
+  deliveryAddress: string,
+  note?: string,
+): Promise<{ id: string; status: string; totalAmount: string }> => {
+  const res = await apiClient.post('/customer/orders/checkout', {
+    deliveryAddress,
+    note,
+  });
+  return res.data.data;
+};
+
+export const getOrders = async () => {
+  const res = await apiClient.get('/customer/orders');
+  return res.data.data as OrderSummary[];
+};
+
+export interface OrderSummary {
+  id: string;
+  status: string;
+  totalAmount: string;
+  deliveryAddress: string;
+  createdAt: string;
+  restaurant: {
+    id: string;
+    name: string;
+    cuisineType: string;
+  };
+  items: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  name: string;
+  price: string;
+  quantity: number;
+}
