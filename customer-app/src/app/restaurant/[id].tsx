@@ -17,6 +17,22 @@ import { colors, cardShadow } from '../../constants/Colors';
 import { type } from '../../constants/Typography';
 import { space, radius } from '../../constants/Spacing';
 
+const getCuisineEmoji = (cuisine: string): string => {
+  const map: Record<string, string> = {
+    American: '🍔',
+    Italian: '🍕',
+    Indian: '🍛',
+    Chinese: '🥡',
+    Japanese: '🍱',
+    Mexican: '🌮',
+    Thai: '🍜',
+    Mediterranean: '🥗',
+    Desserts: '🍰',
+    Beverages: '☕',
+  };
+  return map[cuisine] ?? '🍽️';
+};
+
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -188,7 +204,7 @@ export default function RestaurantScreen() {
 
       {/* Cover */}
       <View style={styles.cover}>
-        <Text style={styles.coverEmoji}>🍽️</Text>
+        <Text style={styles.coverEmoji}>{getCuisineEmoji(restaurant.cuisineType)}</Text>
       </View>
 
       <SectionList

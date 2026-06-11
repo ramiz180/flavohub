@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: space.lg,
-    paddingTop: space.lg,
+    paddingTop: space.sm,
     paddingBottom: space.md,
     backgroundColor: colors.surface,
   },

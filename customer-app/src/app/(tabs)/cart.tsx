@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: space.lg,
     paddingTop: space.md,
-    paddingBottom: 120,
+    paddingBottom: 160,
     backgroundColor: colors.surfaceAlt,
   },
   itemRow: {
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
-    paddingBottom: space.xl,
+    paddingBottom: 32,
     borderTopWidth: 1,
     borderColor: colors.borderSubtle,
   },
