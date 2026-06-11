@@ -1,10 +1,15 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { RestaurantGateway } from '../restaurant-gateway/restaurant.gateway';
 import { CheckoutDto } from './dto/checkout.dto';
 
 @Injectable()
 export class CustomerOrderService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gateway: RestaurantGateway,
+  ) {}
 
   async checkout(customerId: string, dto: CheckoutDto) {
     const cart = await this.prisma.cart.findUnique({
@@ -57,6 +62,16 @@ export class CustomerOrderService {
       return newOrder;
     });
 
+    this.gateway.emitToRestaurant(restaurantId, 'order:new', {
+      orderId: order.id,
+      customerId,
+      totalAmount: order.totalAmount,
+      items: order.items,
+      deliveryAddress: order.deliveryAddress,
+      status: order.status,
+      createdAt: order.createdAt,
+    });
+
     return order;
   }
 
@@ -90,5 +105,57 @@ export class CustomerOrderService {
     });
     if (!order) throw new NotFoundException('Order not found');
     return order;
+  }
+
+  async cancelOrder(customerId: string, orderId: string) {
+    const order = await this.prisma.customerOrder.findFirst({
+      where: { id: orderId, customerId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'PLACED') {
+      throw new BadRequestException('Order can only be cancelled when status is PLACED');
+    }
+    return this.prisma.customerOrder.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED' },
+      include: {
+        restaurant: { select: { id: true, name: true } },
+        items: true,
+      },
+    });
+  }
+
+  async updateOrderStatus(orderId: string, status: string, ownerId: string) {
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { ownerId },
+      select: { id: true, name: true },
+    });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+
+    const order = await this.prisma.customerOrder.findFirst({
+      where: { id: orderId, restaurantId: restaurant.id },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const updated = await this.prisma.customerOrder.update({
+      where: { id: orderId },
+      data: { status: status as OrderStatus },
+      include: { items: true, restaurant: { select: { id: true, name: true } } },
+    });
+
+    this.gateway.emitToRestaurant(restaurant.id, 'order:status_updated', {
+      orderId,
+      status,
+      updatedAt: updated.updatedAt,
+    });
+
+    this.gateway.emitToCustomer(updated.customerId, 'order:status_updated', {
+      orderId,
+      status,
+      restaurantName: updated.restaurant.name,
+      updatedAt: updated.updatedAt,
+    });
+
+    return updated;
   }
 }

@@ -11,13 +11,16 @@ import { Role } from '@flavohub/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface JwtPayload {
-  id: string;
-  email: string;
-  role: string;
+  sub: string;
+  email?: string;
+  role?: string;
+  type?: string;
+  phone?: string;
+  isGuest?: boolean;
 }
 
 @WebSocketGateway({
-  cors: { origin: ['http://localhost:3001', 'http://localhost:3002'] },
+  cors: { origin: '*' },
   transports: ['websocket', 'polling'],
 })
 export class RestaurantGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -49,39 +52,42 @@ export class RestaurantGateway implements OnGatewayConnection, OnGatewayDisconne
       return;
     }
 
-    if (payload.role !== Role.RESTAURANT_OWNER) {
-      socket.emit('error', { message: 'Not authorized: RESTAURANT_OWNER role required' });
-      socket.disconnect(true);
+    // Restaurant owner — join restaurant room
+    if (payload.role === Role.RESTAURANT_OWNER) {
+      if (!payload.sub) {
+        socket.disconnect(true);
+        return;
+      }
+      try {
+        const restaurant = await this.prisma.restaurant.findUnique({
+          where: { ownerId: payload.sub },
+          select: { id: true },
+        });
+        if (!restaurant) {
+          socket.emit('error', { message: 'No restaurant linked to this account' });
+          socket.disconnect(true);
+          return;
+        }
+        await socket.join(`restaurant:${restaurant.id}`);
+        this.logger.log(`Restaurant socket ${socket.id} joined restaurant:${restaurant.id}`);
+      } catch (error) {
+        this.logger.warn(
+          'Gateway connection error: ' + (error instanceof Error ? error.message : String(error)),
+        );
+        socket.disconnect(true);
+      }
       return;
     }
 
-    if (!payload.id) {
-      socket.disconnect(true);
+    // Customer — join personal room for order push notifications
+    if (payload.type === 'customer') {
+      await socket.join(`customer:${payload.sub}`);
+      this.logger.log(`Customer socket ${socket.id} joined customer:${payload.sub}`);
       return;
     }
 
-    let restaurant: { id: string } | null;
-    try {
-      restaurant = await this.prisma.restaurant.findUnique({
-        where: { ownerId: payload.id },
-        select: { id: true },
-      });
-    } catch (error) {
-      this.logger.warn(
-        'Gateway connection error: ' + (error instanceof Error ? error.message : String(error)),
-      );
-      socket.disconnect(true);
-      return;
-    }
-
-    if (!restaurant) {
-      socket.emit('error', { message: 'No restaurant linked to this account' });
-      socket.disconnect(true);
-      return;
-    }
-
-    await socket.join(`restaurant:${restaurant.id}`);
-    this.logger.log(`Socket ${socket.id} joined restaurant:${restaurant.id}`);
+    socket.emit('error', { message: 'Unauthorized role' });
+    socket.disconnect(true);
   }
 
   handleDisconnect(socket: Socket): void {
@@ -90,5 +96,13 @@ export class RestaurantGateway implements OnGatewayConnection, OnGatewayDisconne
 
   emitToRestaurant(restaurantId: string, event: string, data: unknown): void {
     this.server.to(`restaurant:${restaurantId}`).emit(event, data);
+  }
+
+  emitToCustomer(customerId: string, event: string, data: unknown): void {
+    this.server.to(`customer:${customerId}`).emit(event, data);
+  }
+
+  emitToOrder(orderId: string, event: string, data: unknown): void {
+    this.server.to(`order:${orderId}`).emit(event, data);
   }
 }
