@@ -8,11 +8,18 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeScreen } from '../../components/ui/SafeScreen';
 import type { Cart, CartItem } from '../../lib/api';
-import { getCart, updateCartItem, clearCart } from '../../lib/api';
+import {
+  getCart,
+  updateCartItem,
+  clearCart,
+  validateCoupon,
+  type CouponResult,
+} from '../../lib/api';
 import { colors, cardShadow } from '../../constants/Colors';
 import { type } from '../../constants/Typography';
 import { space, radius } from '../../constants/Spacing';
@@ -22,6 +29,10 @@ export default function CartScreen() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [showCouponInput, setShowCouponInput] = useState(false);
 
   const fetchCart = async () => {
     try {
@@ -68,9 +79,32 @@ export default function CartScreen() {
     ]);
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    try {
+      const result = await validateCoupon(couponCode, cart?.total ?? 0);
+      setCouponResult(result);
+      if (!result.valid) {
+        Alert.alert('Invalid Coupon', result.reason ?? 'Coupon cannot be applied');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not validate coupon. Please try again.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponResult(null);
+    setCouponCode('');
+    setShowCouponInput(false);
+  };
+
   const DELIVERY_FEE = 30;
   const TAXES = Math.round((cart?.total ?? 0) * 0.05);
-  const grandTotal = (cart?.total ?? 0) + DELIVERY_FEE + TAXES;
+  const couponDiscount = couponResult?.valid ? (couponResult.discount ?? 0) : 0;
+  const grandTotal = (cart?.total ?? 0) + DELIVERY_FEE + TAXES - couponDiscount;
 
   const renderItem = ({ item }: { item: CartItem }) => {
     const price = parseInt(item.menuItem.price, 10);
@@ -169,6 +203,65 @@ export default function CartScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListFooterComponent={
           <View>
+            {/* Apply Coupon */}
+            <View style={styles.couponSection}>
+              {!showCouponInput && !couponResult?.valid ? (
+                <TouchableOpacity
+                  style={styles.couponRow}
+                  onPress={() => setShowCouponInput(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.couponRowLeft}>
+                    <Text style={styles.couponIcon}>🏷️</Text>
+                    <Text style={styles.couponRowLabel}>Apply Coupon</Text>
+                  </View>
+                  <Text style={styles.couponChevron}>›</Text>
+                </TouchableOpacity>
+              ) : couponResult?.valid ? (
+                <View style={styles.couponApplied}>
+                  <View style={styles.couponAppliedLeft}>
+                    <Text style={styles.couponAppliedIcon}>✅</Text>
+                    <View>
+                      <Text style={styles.couponAppliedCode}>{couponResult.coupon?.code}</Text>
+                      <Text style={styles.couponAppliedSaving}>
+                        You save ₹{couponResult.discount}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={handleRemoveCoupon}>
+                    <Text style={styles.couponRemove}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.couponInputRow}>
+                  <TextInput
+                    style={styles.couponInput}
+                    placeholder="Enter coupon code"
+                    placeholderTextColor={colors.muted}
+                    value={couponCode}
+                    onChangeText={setCouponCode}
+                    autoCapitalize="characters"
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.couponApplyBtn,
+                      (!couponCode.trim() || couponLoading) && { opacity: 0.5 },
+                    ]}
+                    onPress={handleApplyCoupon}
+                    disabled={!couponCode.trim() || couponLoading}
+                    activeOpacity={0.8}
+                  >
+                    {couponLoading ? (
+                      <ActivityIndicator size="small" color={colors.surface} />
+                    ) : (
+                      <Text style={styles.couponApplyBtnText}>Apply</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
             {/* Bill breakdown */}
             <View style={styles.billCard}>
               <Text style={styles.billTitle}>Bill Details</Text>
@@ -185,6 +278,17 @@ export default function CartScreen() {
                 <Text style={styles.billLabel}>Taxes & Charges</Text>
                 <Text style={styles.billValue}>₹{TAXES}</Text>
               </View>
+
+              {couponDiscount > 0 && (
+                <View style={styles.billRow}>
+                  <Text style={[styles.billLabel, { color: colors.secondary }]}>
+                    Coupon Discount
+                  </Text>
+                  <Text style={[styles.billValue, { color: colors.secondary }]}>
+                    −₹{couponDiscount}
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.billDivider} />
 
@@ -204,7 +308,11 @@ export default function CartScreen() {
           onPress={() =>
             router.push({
               pathname: '/checkout',
-              params: { total: grandTotal },
+              params: {
+                total: grandTotal,
+                couponCode: couponResult?.valid ? (couponResult.coupon?.code ?? '') : '',
+                couponDiscount: couponDiscount,
+              },
             })
           }
           activeOpacity={0.9}
@@ -394,6 +502,92 @@ const styles = StyleSheet.create({
   },
   browseBtnText: {
     ...type.button,
+    color: colors.surface,
+  },
+  couponSection: {
+    marginTop: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    ...cardShadow,
+  },
+  couponRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: space.lg,
+  },
+  couponRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  couponIcon: {
+    fontSize: 18,
+    marginRight: space.md,
+  },
+  couponRowLabel: {
+    ...type.bodyMedium,
+    color: colors.ink,
+  },
+  couponChevron: {
+    fontSize: 20,
+    color: colors.muted,
+  },
+  couponApplied: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: space.lg,
+    backgroundColor: colors.secondaryTint,
+  },
+  couponAppliedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  couponAppliedIcon: {
+    fontSize: 18,
+    marginRight: space.md,
+  },
+  couponAppliedCode: {
+    ...type.bodyMedium,
+    color: colors.secondary,
+  },
+  couponAppliedSaving: {
+    ...type.caption,
+    color: colors.secondary,
+    marginTop: 2,
+  },
+  couponRemove: {
+    ...type.caption,
+    color: colors.danger,
+    fontWeight: '600',
+  },
+  couponInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: space.md,
+    gap: space.sm,
+  },
+  couponInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    ...type.body,
+    color: colors.ink,
+  },
+  couponApplyBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    height: 44,
+    paddingHorizontal: space.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  couponApplyBtnText: {
+    ...type.bodyMedium,
     color: colors.surface,
   },
 });

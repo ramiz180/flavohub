@@ -211,3 +211,25 @@ export interface OrderItem {
   price: string;
   quantity: number;
 }
+
+// ─── Coupon API ────────────────────────────────────────────────────────
+export interface CouponResult {
+  valid: boolean;
+  discount?: number;
+  reason?: string;
+  coupon?: {
+    id: string;
+    code: string;
+    type: string;
+    value: number;
+    minOrderValue: number;
+  };
+}
+
+export const validateCoupon = async (code: string, orderAmount: number): Promise<CouponResult> => {
+  const res = await apiClient.post('/customer/coupons/validate', {
+    code: code.toUpperCase().trim(),
+    orderAmount,
+  });
+  return res.data.data as CouponResult;
+};
