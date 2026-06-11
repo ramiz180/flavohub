@@ -6,12 +6,16 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   SectionList,
+  Alert,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeScreen } from '@/components/ui/SafeScreen';
-import type { Restaurant, MenuCategory, MenuItem } from '@/lib/api';
-import { getRestaurantById, getRestaurantMenu } from '@/lib/api';
-import { Colors } from '@/constants/Colors';
+import { SafeScreen } from '../../components/ui/SafeScreen';
+import type { Restaurant, MenuCategory, MenuItem } from '../../lib/api';
+import { getRestaurantById, getRestaurantMenu, addToCart } from '../../lib/api';
+import { colors, cardShadow } from '../../constants/Colors';
+import { type } from '../../constants/Typography';
+import { space, radius } from '../../constants/Spacing';
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,6 +24,8 @@ export default function RestaurantScreen() {
   const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingItem, setAddingItem] = useState<string | null>(null);
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -36,12 +42,54 @@ export default function RestaurantScreen() {
     load();
   }, [id]);
 
-  const renderMenuItem = ({ item }: { item: MenuItem }) => (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={() => console.log('Add to cart:', item.id, item.name)}
-    >
+  const handleAddToCart = async (item: MenuItem) => {
+    setAddingItem(item.id);
+    try {
+      const updatedCart = await addToCart(item.id, 1);
+      setCartCount(updatedCart.items.reduce((s, i) => s + i.quantity, 0));
+      Alert.alert('✓ Added to cart', `${item.name} added successfully`, [
+        { text: 'Continue', style: 'cancel' },
+        {
+          text: 'View Cart',
+          onPress: () => router.push('/(tabs)/cart'),
+        },
+      ]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not add item to cart';
+      if (msg.includes('one restaurant')) {
+        Alert.alert(
+          'Different restaurant',
+          'Your cart has items from another restaurant. Clear your cart first?',
+          [
+            { text: 'Keep', style: 'cancel' },
+            {
+              text: 'Clear & Add',
+              style: 'destructive',
+              onPress: async () => {
+                const { clearCart } = await import('../../lib/api');
+                await clearCart();
+                await addToCart(item.id, 1);
+                setCartCount(1);
+                Alert.alert('✓ Added', `${item.name} added to cart`);
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert('Error', 'Could not add item. Please try again.');
+      }
+    } finally {
+      setAddingItem(null);
+    }
+  };
+
+  const renderMenuItem = ({ item }: { item: MenuItem }) => {
+    const price = parseInt(item.price, 10);
+    const isAdding = addingItem === item.id;
+
+    return (
       <View style={styles.menuItem}>
+        {/* Left: info */}
         <View style={styles.menuItemInfo}>
           <Text style={styles.menuItemName}>{item.name}</Text>
           {item.description ? (
@@ -49,15 +97,35 @@ export default function RestaurantScreen() {
               {item.description}
             </Text>
           ) : null}
-          <Text style={styles.menuItemPrice}>₹{parseInt(item.price, 10)}</Text>
+          <Text style={styles.menuItemPrice}>₹{price}</Text>
         </View>
-        {/* Image placeholder — will add real image in later phase */}
-        <View style={styles.menuItemImage}>
-          <Text style={{ fontSize: 28 }}>🍴</Text>
+
+        {/* Right: image + Add button */}
+        <View style={styles.menuItemRight}>
+          <View style={styles.menuItemImage}>
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.menuItemImageInner} />
+            ) : (
+              <Text style={{ fontSize: 28 }}>🍽️</Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.addBtn, isAdding && { opacity: 0.7 }]}
+            onPress={() => handleAddToCart(item)}
+            disabled={isAdding || !item.isAvailable}
+            activeOpacity={0.8}
+          >
+            {isAdding ? (
+              <ActivityIndicator size="small" color={colors.surface} />
+            ) : (
+              <Text style={styles.addBtnText}>{item.isAvailable ? 'Add +' : 'N/A'}</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   const renderSectionHeader = ({ section }: { section: { title: string } }) => (
     <View style={styles.sectionHeader}>
@@ -69,7 +137,7 @@ export default function RestaurantScreen() {
     return (
       <SafeScreen>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeScreen>
     );
@@ -93,20 +161,34 @@ export default function RestaurantScreen() {
     data: cat.items,
   }));
 
-  const todayHours = restaurant.hours.find((h) => h.dayOfWeek === new Date().getDay());
+  const todayHours = restaurant.hours?.find((h) => h.dayOfWeek === new Date().getDay());
+
+  const isOpenNow = todayHours && !todayHours.isClosed;
 
   return (
     <SafeScreen>
-      {/* Header */}
+      {/* Back button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backBtnText}>←</Text>
         </TouchableOpacity>
+
+        {/* Cart indicator */}
+        {cartCount > 0 && (
+          <TouchableOpacity
+            style={styles.cartIndicator}
+            onPress={() => router.push('/(tabs)/cart')}
+          >
+            <Text style={styles.cartIndicatorText}>
+              🛒 {cartCount} item{cartCount !== 1 ? 's' : ''} in cart
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Cover placeholder */}
+      {/* Cover */}
       <View style={styles.cover}>
-        <Text style={styles.coverEmoji}>🍔</Text>
+        <Text style={styles.coverEmoji}>🍽️</Text>
       </View>
 
       <SectionList
@@ -116,20 +198,52 @@ export default function RestaurantScreen() {
         renderSectionHeader={renderSectionHeader}
         stickySectionHeadersEnabled
         ListHeaderComponent={
-          <View style={styles.info}>
+          <View style={styles.infoSheet}>
+            {/* Restaurant name */}
             <Text style={styles.restaurantName}>{restaurant.name}</Text>
+
+            {/* Cuisine */}
             <Text style={styles.restaurantCuisine}>{restaurant.cuisineType}</Text>
+
+            {/* Description */}
             {restaurant.description ? (
               <Text style={styles.restaurantDesc}>{restaurant.description}</Text>
             ) : null}
-            <Text style={styles.restaurantCity}>
-              📍 {restaurant.addressLine}, {restaurant.city}
-            </Text>
-            {todayHours && !todayHours.isClosed && (
-              <Text style={styles.restaurantHours}>
-                🕐 Today: {todayHours.openTime} – {todayHours.closeTime}
+
+            {/* Meta row */}
+            <View style={styles.metaRow}>
+              <Text style={styles.metaText}>
+                📍 {restaurant.addressLine}, {restaurant.city}
               </Text>
+            </View>
+
+            {/* Hours */}
+            {todayHours && (
+              <View style={styles.hoursRow}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor: isOpenNow ? colors.secondary : colors.danger,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.hoursText,
+                    {
+                      color: isOpenNow ? colors.secondary : colors.danger,
+                    },
+                  ]}
+                >
+                  {isOpenNow ? 'Open' : 'Closed'}
+                </Text>
+                {isOpenNow && (
+                  <Text style={styles.hoursDetail}> · Closes {todayHours.closeTime}</Text>
+                )}
+              </View>
             )}
+
             <View style={styles.divider} />
             <Text style={styles.menuHeading}>Menu</Text>
           </View>
@@ -147,147 +261,202 @@ export default function RestaurantScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.xs,
+    backgroundColor: colors.surface,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
+    ...cardShadow,
   },
   backBtnText: {
     fontSize: 18,
-    color: '#1F2937',
+    color: colors.ink,
+  },
+  cartIndicator: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+  },
+  cartIndicatorText: {
+    ...type.caption,
+    color: colors.surface,
+    fontWeight: '600',
   },
   cover: {
     height: 180,
-    backgroundColor: '#FFF3E8',
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   coverEmoji: {
-    fontSize: 64,
+    fontSize: 72,
   },
-  info: {
-    padding: 16,
+  infoSheet: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: space.lg,
+    paddingTop: space.xl,
+    paddingBottom: space.md,
   },
   restaurantName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...type.h2,
+    color: colors.ink,
   },
   restaurantCuisine: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginTop: 4,
+    ...type.bodyMedium,
+    color: colors.primary,
+    marginTop: space.xs,
   },
   restaurantDesc: {
-    fontSize: 14,
-    color: '#687280',
-    marginTop: 6,
+    ...type.body,
+    color: colors.muted,
+    marginTop: space.sm,
     lineHeight: 20,
   },
-  restaurantCity: {
-    fontSize: 13,
-    color: '#687280',
-    marginTop: 8,
+  metaRow: {
+    marginTop: space.sm,
   },
-  restaurantHours: {
-    fontSize: 13,
-    color: '#4CAF2A',
-    marginTop: 4,
+  metaText: {
+    ...type.caption,
+    color: colors.muted,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: space.xs,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: space.xs,
+  },
+  hoursText: {
+    ...type.caption,
+    fontWeight: '600',
+  },
+  hoursDetail: {
+    ...type.caption,
+    color: colors.muted,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
-    marginVertical: 16,
+    backgroundColor: colors.borderSubtle,
+    marginVertical: space.lg,
   },
   menuHeading: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
+    ...type.h3,
+    color: colors.ink,
   },
   sectionHeader: {
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     borderTopWidth: 1,
-    borderColor: '#F3F4F6',
+    borderBottomWidth: 1,
+    borderColor: colors.borderSubtle,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...type.title,
+    color: colors.ink,
   },
   menuItem: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     borderBottomWidth: 1,
-    borderColor: '#F3F4F6',
-    backgroundColor: '#fff',
-    alignItems: 'center',
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.surface,
+    alignItems: 'flex-start',
   },
   menuItemInfo: {
     flex: 1,
-    marginRight: 12,
+    marginRight: space.md,
   },
   menuItemName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...type.title,
+    color: colors.ink,
   },
   menuItemDesc: {
-    fontSize: 13,
-    color: '#687280',
-    marginTop: 2,
+    ...type.caption,
+    color: colors.muted,
+    marginTop: space.xs,
     lineHeight: 18,
   },
   menuItemPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginTop: 6,
+    ...type.price,
+    color: colors.ink,
+    marginTop: space.sm,
+  },
+  menuItemRight: {
+    alignItems: 'center',
+    width: 80,
   },
   menuItemImage: {
     width: 72,
     height: 72,
-    borderRadius: 10,
-    backgroundColor: '#FFF3E8',
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  menuItemImageInner: {
+    width: 72,
+    height: 72,
+  },
+  addBtn: {
+    backgroundColor: colors.secondary,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: space.sm,
+    width: 72,
+  },
+  addBtnText: {
+    ...type.caption,
+    color: colors.surface,
+    fontWeight: '600',
   },
   listContent: {
     paddingBottom: 32,
+    backgroundColor: colors.surface,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: space.lg,
   },
   errorText: {
-    fontSize: 15,
-    color: '#EF4444',
+    ...type.body,
+    color: colors.danger,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: space.md,
   },
   backLink: {
-    fontSize: 15,
-    color: Colors.primary,
+    ...type.body,
+    color: colors.primary,
     fontWeight: '600',
   },
   emptyMenu: {
-    padding: 24,
+    padding: space.xxl,
     alignItems: 'center',
   },
   emptyMenuText: {
-    fontSize: 14,
-    color: '#687280',
+    ...type.body,
+    color: colors.muted,
   },
 });
