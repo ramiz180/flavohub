@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { connectSocket, disconnectSocket } from '@/lib/socket';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,6 +22,14 @@ export default function RootLayout() {
   useEffect(() => {
     initialize();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      connectSocket();
+    } else {
+      disconnectSocket();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (fontsLoaded && isInitialized) {

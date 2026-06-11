@@ -50,7 +50,16 @@ export default function OrderSuccessScreen() {
         <View style={styles.ctas}>
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={() => router.push('/(tabs)/orders')}
+            onPress={() =>
+              router.push({
+                pathname: '/order-tracking',
+                params: {
+                  orderId,
+                  restaurantName: 'Your Restaurant',
+                  total,
+                },
+              })
+            }
             activeOpacity={0.9}
           >
             <Text style={styles.primaryBtnText}>Track Order</Text>
