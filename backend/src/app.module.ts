@@ -10,6 +10,7 @@ import { CustomerAddressModule } from './customer-address/customer-address.modul
 import { CustomerAuthModule } from './customer-auth/customer-auth.module';
 import { CustomerProfileModule } from './customer-profile/customer-profile.module';
 import { CustomerCartModule } from './customer-cart/customer-cart.module';
+import { CustomerCouponModule } from './customer-coupon/customer-coupon.module';
 import { CustomerOrderModule } from './customer-order/customer-order.module';
 import { CustomerRestaurantModule } from './customer-restaurant/customer-restaurant.module';
 import { HealthModule } from './health/health.module';
@@ -43,6 +44,7 @@ import { SettingsModule } from './settings/settings.module';
     CustomerRestaurantModule,
     CustomerCartModule,
     CustomerOrderModule,
+    CustomerCouponModule,
   ],
   providers: [KeepaliveService],
 })
