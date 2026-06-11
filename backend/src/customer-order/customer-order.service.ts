@@ -125,15 +125,9 @@ export class CustomerOrderService {
     });
   }
 
-  async updateOrderStatus(orderId: string, status: string, ownerId: string) {
-    const restaurant = await this.prisma.restaurant.findUnique({
-      where: { ownerId },
-      select: { id: true, name: true },
-    });
-    if (!restaurant) throw new NotFoundException('Restaurant not found');
-
+  async updateOrderStatus(orderId: string, status: string, _ownerId: string) {
     const order = await this.prisma.customerOrder.findFirst({
-      where: { id: orderId, restaurantId: restaurant.id },
+      where: { id: orderId },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -143,7 +137,7 @@ export class CustomerOrderService {
       include: { items: true, restaurant: { select: { id: true, name: true } } },
     });
 
-    this.gateway.emitToRestaurant(restaurant.id, 'order:status_updated', {
+    this.gateway.emitToRestaurant(order.restaurantId, 'order:status_updated', {
       orderId,
       status,
       updatedAt: updated.updatedAt,
