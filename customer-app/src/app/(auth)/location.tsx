@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SafeScreen } from '@/components/ui/SafeScreen';
@@ -43,7 +43,6 @@ export default function LocationScreen() {
           value={search}
           onChangeText={setSearch}
           leftElement={<Ionicons name="search" size={18} color="#687280" />}
-          onFocus={() => Alert.alert('Coming soon!', 'Search will be available shortly')}
         />
 
         <Button

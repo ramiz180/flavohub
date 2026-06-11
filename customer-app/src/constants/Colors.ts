@@ -22,10 +22,8 @@ export const cardShadow = {
   elevation: 3,
 };
 
-// Keep backward compat — existing screens import Colors.primary
+// Backward-compat default export for screens using Colors.primary etc.
 const Colors = {
-  primary: colors.primary,
-  secondary: colors.secondary,
   ...colors,
 };
 

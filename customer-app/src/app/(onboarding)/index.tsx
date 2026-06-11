@@ -13,25 +13,23 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Button } from '@/components/ui/Button';
-import { Gradients } from '@/constants/Colors';
-
 const { width } = Dimensions.get('window');
 
 const slides = [
   {
-    gradient: Gradients.slide1,
+    gradient: ['#F58220', '#FEF0E6'] as const,
     emoji: '🍕',
     title: 'Discover Great Food',
     subtitle: 'Explore top restaurants and curated cuisines near you.',
   },
   {
-    gradient: Gradients.slide2,
+    gradient: ['#4CAF2A', '#EAF6E6'] as const,
     emoji: '🛵',
     title: 'Track Every Order',
     subtitle: 'Real-time updates from kitchen to your doorstep.',
   },
   {
-    gradient: Gradients.slide3,
+    gradient: ['#6366F1', '#EDE9FE'] as const,
     emoji: '⚡',
     title: 'Fast Delivery',
     subtitle: 'Lightning fast delivery at your convenience.',
