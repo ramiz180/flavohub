@@ -233,3 +233,41 @@ export const validateCoupon = async (code: string, orderAmount: number): Promise
   });
   return res.data.data as CouponResult;
 };
+
+// ─── Payment API ──────────────────────────────────────────────────────
+export interface RazorpayOrder {
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  orderId: string;
+}
+
+export interface PaymentVerification {
+  success: boolean;
+  orderId: string;
+  paymentId: string;
+  status: string;
+}
+
+export const createPaymentOrder = async (orderId: string): Promise<RazorpayOrder> => {
+  const res = await apiClient.post('/customer/payments/create-order', {
+    orderId,
+  });
+  return res.data.data as RazorpayOrder;
+};
+
+export const verifyPayment = async (
+  razorpayOrderId: string,
+  razorpayPaymentId: string,
+  razorpaySignature: string,
+  orderId: string,
+): Promise<PaymentVerification> => {
+  const res = await apiClient.post('/customer/payments/verify', {
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+    orderId,
+  });
+  return res.data.data as PaymentVerification;
+};
