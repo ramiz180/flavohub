@@ -12,6 +12,7 @@ const NAV = [
   { href: '/dashboard/hours', label: 'Hours' },
   { href: '/dashboard/menu', label: 'Menu' },
   { href: '/dashboard/orders', label: 'Orders' },
+  { href: '/dashboard/customer-orders', label: 'Customer Orders' },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

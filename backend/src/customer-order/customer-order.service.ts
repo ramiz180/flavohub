@@ -62,14 +62,12 @@ export class CustomerOrderService {
       return newOrder;
     });
 
-    this.gateway.emitToRestaurant(restaurantId, 'order:new', {
+    this.gateway.emitToRestaurant(restaurantId, 'customer-order:new', {
       orderId: order.id,
-      customerId,
-      totalAmount: order.totalAmount,
-      items: order.items,
-      deliveryAddress: order.deliveryAddress,
       status: order.status,
       createdAt: order.createdAt,
+      itemCount: order.items.length,
+      totalAmount: order.totalAmount,
     });
 
     return order;

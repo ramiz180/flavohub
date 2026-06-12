@@ -15,6 +15,7 @@ import type {
   UpdateItemPayload,
 } from '@/types/menu';
 import type { Order } from '@/types/order';
+import type { CustomerOrder, CustomerOrdersListResponse } from '@/types/customer-order';
 
 export class AuthError extends Error {
   constructor() {
@@ -151,5 +152,46 @@ export const apiClient = {
 
     markDelivered: (token: string, id: string) =>
       apiFetch<Order>(`/restaurant/orders/${id}/delivered`, { method: 'POST', token }),
+  },
+
+  customerOrders: {
+    list: (token: string, params?: { status?: string; page?: number; pageSize?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.status) qs.set('status', params.status);
+      if (params?.page) qs.set('page', String(params.page));
+      if (params?.pageSize) qs.set('pageSize', String(params.pageSize));
+      const query = qs.toString() ? `?${qs.toString()}` : '';
+      return apiFetch<CustomerOrdersListResponse>(`/restaurant/customer-orders${query}`, { token });
+    },
+
+    accept: (token: string, id: string) =>
+      apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/accept`, {
+        method: 'PATCH',
+        token,
+      }),
+
+    reject: (token: string, id: string) =>
+      apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/reject`, {
+        method: 'PATCH',
+        token,
+      }),
+
+    preparing: (token: string, id: string) =>
+      apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/preparing`, {
+        method: 'PATCH',
+        token,
+      }),
+
+    ready: (token: string, id: string) =>
+      apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/ready`, {
+        method: 'PATCH',
+        token,
+      }),
+
+    delivered: (token: string, id: string) =>
+      apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/delivered`, {
+        method: 'PATCH',
+        token,
+      }),
   },
 };

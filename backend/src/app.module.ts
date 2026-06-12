@@ -15,6 +15,7 @@ import { CustomerOrderModule } from './customer-order/customer-order.module';
 import { CustomerPaymentModule } from './customer-payment/customer-payment.module';
 import { CustomerRestaurantModule } from './customer-restaurant/customer-restaurant.module';
 import { HealthModule } from './health/health.module';
+import { RestaurantCustomerOrdersModule } from './restaurant-customer-orders/restaurant-customer-orders.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
 import { OwnerRestaurantModule } from './owner-restaurant/owner-restaurant.module';
@@ -47,6 +48,7 @@ import { SettingsModule } from './settings/settings.module';
     CustomerOrderModule,
     CustomerCouponModule,
     CustomerPaymentModule,
+    RestaurantCustomerOrdersModule,
   ],
   providers: [KeepaliveService],
 })
