@@ -170,7 +170,9 @@ export default function CheckoutScreen() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', msg);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (err as any)?.response?.data?.error?.message ?? '';
+      Alert.alert('Error', detail ? `${msg}: ${detail}` : msg);
     } finally {
       setLoading(false);
     }
