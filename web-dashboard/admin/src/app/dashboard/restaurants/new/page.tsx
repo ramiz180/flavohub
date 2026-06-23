@@ -57,18 +57,18 @@ function CreateRestaurantContent() {
       city: form.city,
       phone: form.phone,
     };
-    if (form.email.trim()) payload.email = form.email.trim();
-    if (form.description.trim()) payload.description = form.description.trim();
-    if (form.cuisineType.trim()) payload.cuisineType = form.cuisineType.trim();
-    if (form.latitude.trim()) {
+    if (form.email && form.email.trim()) payload.email = form.email.trim();
+    if (form.description && form.description.trim()) payload.description = form.description.trim();
+    if (form.cuisineType && form.cuisineType.trim()) payload.cuisineType = form.cuisineType.trim();
+    if (form.latitude && form.latitude.trim()) {
       const lat = parseFloat(form.latitude);
       if (!isNaN(lat)) payload.latitude = lat;
     }
-    if (form.longitude.trim()) {
+    if (form.longitude && form.longitude.trim()) {
       const lng = parseFloat(form.longitude);
       if (!isNaN(lng)) payload.longitude = lng;
     }
-    if (logoUrl.trim()) payload.logoUrl = logoUrl.trim();
+    if (logoUrl && logoUrl.trim()) payload.logoUrl = logoUrl.trim();
 
     try {
       const restaurant = await apiClient.restaurants.create(accessToken, payload);

@@ -14,6 +14,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Email and password login' })
   async login(@Body() dto: LoginDto) {
+    console.log('[DEBUG] Login attempt from UI:', dto.email, dto.password);
     return this.authService.login(dto);
   }
 

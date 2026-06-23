@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secure-storage';
 
 const BASE_URL = process.env['EXPO_PUBLIC_API_URL'] ?? 'https://flavohub-api.onrender.com';
 
@@ -40,35 +40,39 @@ apiClient.interceptors.response.use(
   },
 );
 
-// ─── Restaurant Discovery ────────────────────────────────────────────
-export const getNearbyRestaurants = async (lat: number, lng: number, radius = 10) => {
-  const res = await apiClient.get('/customer/restaurants/nearby', {
-    params: { lat, lng, radius },
-  });
-  return res.data.data as NearbyRestaurant[];
-};
-
-export const getRestaurantById = async (id: string) => {
-  const res = await apiClient.get(`/customer/restaurants/${id}`);
-  return res.data.data as Restaurant;
-};
-
-export const getRestaurantMenu = async (id: string) => {
-  const res = await apiClient.get(`/customer/restaurants/${id}/menu`);
-  return res.data.data as MenuCategory[];
-};
-
 // ─── Types ───────────────────────────────────────────────────────────
+
 export interface NearbyRestaurant {
   id: string;
   name: string;
   cuisineType: string;
   logoUrl: string | null;
+  coverImageUrl: string | null;
   addressLine: string;
   city: string;
   isActive: boolean;
+  isOpen: boolean;
   status: string;
   distance: number;
+  deliveryTimeMin: number | null;
+  minOrderAmount: number | null;
+}
+
+export interface FoodSearchResult {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string;
+  imageUrl: string | null;
+  isAvailable: boolean;
+  restaurantId: string;
+  restaurantName: string;
+  restaurantCity: string;
+}
+
+export interface SearchResult {
+  restaurants: NearbyRestaurant[];
+  foods: FoodSearchResult[];
 }
 
 export interface RestaurantHours {
@@ -88,6 +92,7 @@ export interface Restaurant {
   city: string;
   phone: string | null;
   isActive: boolean;
+  isOpen: boolean;
   status: string;
   latitude: number;
   longitude: number;
@@ -109,6 +114,82 @@ export interface MenuCategory {
   sortOrder: number;
   items: MenuItem[];
 }
+
+// ─── Restaurant Discovery ─────────────────────────────────────────────
+
+export const getNearbyRestaurants = async (
+  latitude: number,
+  longitude: number,
+  radius = 10,
+): Promise<NearbyRestaurant[]> => {
+  const res = await apiClient.get('/customer/restaurants/nearby', {
+    params: { latitude, longitude, radius },
+  });
+  return res.data.data as NearbyRestaurant[];
+};
+
+export const searchRestaurants = async (
+  q: string,
+  lat?: number,
+  lng?: number,
+  radius?: number,
+): Promise<SearchResult> => {
+  const res = await apiClient.get('/customer/restaurants/search', {
+    params: { q, lat, lng, radius },
+  });
+  return res.data.data as SearchResult;
+};
+
+export const getRestaurantsByCategory = async (
+  name: string,
+  latitude?: number,
+  longitude?: number,
+  radius = 10,
+): Promise<NearbyRestaurant[]> => {
+  const res = await apiClient.get('/customer/restaurants/category', {
+    params: { name, latitude, longitude, radius },
+  });
+  return res.data.data as NearbyRestaurant[];
+};
+
+export const getPopularRestaurants = async (
+  latitude: number,
+  longitude: number,
+  radius = 10,
+): Promise<NearbyRestaurant[]> => {
+  const res = await apiClient.get('/customer/restaurants/popular', {
+    params: { latitude, longitude, radius },
+  });
+  return res.data.data as NearbyRestaurant[];
+};
+
+export const getTrendingRestaurants = async (
+  latitude: number,
+  longitude: number,
+  radius = 10,
+): Promise<NearbyRestaurant[]> => {
+  const res = await apiClient.get('/customer/restaurants/trending', {
+    params: { latitude, longitude, radius },
+  });
+  return res.data.data as NearbyRestaurant[];
+};
+
+export const getRecentlyOrderedRestaurants = async (): Promise<NearbyRestaurant[]> => {
+  const res = await apiClient.get('/customer/restaurants/recently-ordered');
+  return res.data.data as NearbyRestaurant[];
+};
+
+export const getRestaurantById = async (id: string): Promise<Restaurant> => {
+  const res = await apiClient.get(`/customer/restaurants/${id}`);
+  return res.data.data as Restaurant;
+};
+
+export const getRestaurantMenu = async (id: string): Promise<MenuCategory[]> => {
+  const res = await apiClient.get(`/customer/restaurants/${id}/menu`);
+  return res.data.data as MenuCategory[];
+};
+
+// ─── Customer Auth / Profile ──────────────────────────────────────────
 
 export const customerApi = {
   auth: {
@@ -132,7 +213,8 @@ export const customerApi = {
   },
 };
 
-// ─── Cart API ─────────────────────────────────────────────────────────
+// ─── Cart ─────────────────────────────────────────────────────────────
+
 export interface CartItem {
   id: string;
   cartId: string;
@@ -165,9 +247,7 @@ export const addToCart = async (menuItemId: string, quantity = 1): Promise<Cart>
 };
 
 export const updateCartItem = async (menuItemId: string, quantity: number): Promise<Cart> => {
-  const res = await apiClient.patch(`/customer/cart/items/${menuItemId}`, {
-    quantity,
-  });
+  const res = await apiClient.patch(`/customer/cart/items/${menuItemId}`, { quantity });
   return res.data.data as Cart;
 };
 
@@ -175,14 +255,25 @@ export const clearCart = async (): Promise<void> => {
   await apiClient.delete('/customer/cart');
 };
 
+// ─── Orders ───────────────────────────────────────────────────────────
+
+export interface CheckoutPayload {
+  customerId: string;
+  restaurantId: string;
+  addressId: string;
+  items: { menuItemId: string; quantity: number }[];
+  paymentMethod: string;
+  subtotal: number;
+  deliveryFee: number;
+  taxes: number;
+  total: number;
+  note?: string;
+}
+
 export const placeOrder = async (
-  deliveryAddress: string,
-  note?: string,
+  payload: CheckoutPayload
 ): Promise<{ id: string; status: string; totalAmount: string }> => {
-  const res = await apiClient.post('/customer/orders/checkout', {
-    deliveryAddress,
-    note,
-  });
+  const res = await apiClient.post('/customer/orders/checkout', payload);
   return res.data.data;
 };
 
@@ -191,17 +282,18 @@ export const getOrders = async () => {
   return res.data.data as OrderSummary[];
 };
 
+export const getOrderDetails = async (id: string) => {
+  const res = await apiClient.get(`/customer/orders/${id}`);
+  return res.data.data;
+};
+
 export interface OrderSummary {
   id: string;
   status: string;
   totalAmount: string;
   deliveryAddress: string;
   createdAt: string;
-  restaurant: {
-    id: string;
-    name: string;
-    cuisineType: string;
-  };
+  restaurant: { id: string; name: string; cuisineType: string };
   items: OrderItem[];
 }
 
@@ -212,18 +304,13 @@ export interface OrderItem {
   quantity: number;
 }
 
-// ─── Coupon API ────────────────────────────────────────────────────────
+// ─── Coupons ──────────────────────────────────────────────────────────
+
 export interface CouponResult {
   valid: boolean;
   discount?: number;
   reason?: string;
-  coupon?: {
-    id: string;
-    code: string;
-    type: string;
-    value: number;
-    minOrderValue: number;
-  };
+  coupon?: { id: string; code: string; type: string; value: number; minOrderValue: number };
 }
 
 export const validateCoupon = async (code: string, orderAmount: number): Promise<CouponResult> => {
@@ -234,7 +321,8 @@ export const validateCoupon = async (code: string, orderAmount: number): Promise
   return res.data.data as CouponResult;
 };
 
-// ─── Payment API ──────────────────────────────────────────────────────
+// ─── Payments ─────────────────────────────────────────────────────────
+
 export interface RazorpayOrder {
   razorpayOrderId: string;
   amount: number;
@@ -251,9 +339,7 @@ export interface PaymentVerification {
 }
 
 export const createPaymentOrder = async (orderId: string): Promise<RazorpayOrder> => {
-  const res = await apiClient.post('/customer/payments/create-order', {
-    orderId,
-  });
+  const res = await apiClient.post('/customer/payments/create-order', { orderId });
   return res.data.data as RazorpayOrder;
 };
 

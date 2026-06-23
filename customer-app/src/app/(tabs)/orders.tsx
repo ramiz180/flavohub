@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeScreen } from '../../components/ui/SafeScreen';
 import type { OrderSummary } from '../../lib/api';
 import { getOrders } from '../../lib/api';
@@ -37,6 +38,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'All' | 'Ongoing' | 'Delivered' | 'Cancelled'>('All');
@@ -130,7 +132,7 @@ export default function OrdersScreen() {
           data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={renderOrder}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
           showsVerticalScrollIndicator={false}
         />
       )}

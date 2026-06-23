@@ -66,6 +66,7 @@ export class CustomerPaymentService {
       where: { id: dto.orderId },
       data: {
         status: 'ACCEPTED',
+        paymentStatus: 'PAID',
         note: `PAID:${dto.razorpayPaymentId}`,
       },
       include: {
@@ -123,6 +124,7 @@ export class CustomerPaymentService {
             where: { id: orderId },
             data: {
               status: 'ACCEPTED',
+              paymentStatus: 'PAID',
               note: `PAID:${paymentId}`,
             },
           });

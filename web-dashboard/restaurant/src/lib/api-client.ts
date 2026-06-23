@@ -39,7 +39,7 @@ async function apiFetch<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && path !== '/auth/login') {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('flavohub:unauthorized'));
     }
@@ -173,6 +173,17 @@ export const apiClient = {
     reject: (token: string, id: string) =>
       apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/reject`, {
         method: 'PATCH',
+        token,
+      }),
+
+    cancel: (token: string, id: string) =>
+      apiFetch<CustomerOrder>(`/restaurant/customer-orders/${id}/cancel`, {
+        method: 'POST',
+        token,
+      }),
+
+    getDelivery: (token: string, id: string) =>
+      apiFetch<any>(`/restaurant/customer-orders/${id}/delivery`, {
         token,
       }),
 

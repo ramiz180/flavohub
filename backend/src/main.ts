@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
     'http://localhost:3001',
     'http://localhost:3002',
   ];
-  app.enableCors({ origin: corsOrigins, credentials: true });
+  app.enableCors({ origin: isDev ? true : corsOrigins, credentials: true });
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -15,22 +15,33 @@ export class CustomerAddressService {
   }
 
   async createAddress(customerId: string, dto: CreateCustomerAddressDto) {
+    console.log('CustomerAddress Request Body:', dto);
     const existing = await this.prisma.customerAddress.count({ where: { customerId } });
     const isDefault = existing === 0;
 
-    return this.prisma.customerAddress.create({
+    const address = await this.prisma.customerAddress.create({
       data: {
         customerId,
         label: dto.label ?? 'Home',
-        addressLine: dto.addressLine,
+        addressLine: dto.address,
         city: dto.city,
         state: dto.state,
         pincode: dto.pincode,
-        lat: dto.lat,
-        lng: dto.lng,
+        lat: dto.latitude,
+        lng: dto.longitude,
         isDefault,
       },
     });
+
+    if (dto.latitude !== undefined && dto.longitude !== undefined && dto.latitude !== null && dto.longitude !== null) {
+      await this.prisma.$executeRaw`
+        UPDATE "CustomerAddress"
+        SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+        WHERE id = ${address.id}
+      `;
+    }
+
+    return address;
   }
 
   async updateAddress(customerId: string, addressId: string, dto: UpdateCustomerAddressDto) {
@@ -39,10 +50,38 @@ export class CustomerAddressService {
       throw new NotFoundException('Address not found');
     }
 
-    return this.prisma.customerAddress.update({
+    // Map new DTO fields to Prisma
+    const dataToUpdate: any = { ...dto };
+    if (dto.address !== undefined) {
+      dataToUpdate.addressLine = dto.address;
+      delete dataToUpdate.address;
+    }
+    if (dto.landmark !== undefined) {
+      delete dataToUpdate.landmark;
+    }
+    if (dto.latitude !== undefined) {
+      dataToUpdate.lat = dto.latitude;
+      delete dataToUpdate.latitude;
+    }
+    if (dto.longitude !== undefined) {
+      dataToUpdate.lng = dto.longitude;
+      delete dataToUpdate.longitude;
+    }
+
+    const updated = await this.prisma.customerAddress.update({
       where: { id: addressId },
-      data: dto,
+      data: dataToUpdate,
     });
+
+    if (dto.latitude !== undefined && dto.longitude !== undefined && dto.latitude !== null && dto.longitude !== null) {
+      await this.prisma.$executeRaw`
+        UPDATE "CustomerAddress"
+        SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+        WHERE id = ${addressId}
+      `;
+    }
+
+    return updated;
   }
 
   async deleteAddress(customerId: string, addressId: string) {
