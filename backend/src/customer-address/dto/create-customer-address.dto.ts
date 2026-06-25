@@ -9,7 +9,7 @@ export class CreateCustomerAddressDto {
 
   @ApiProperty()
   @IsString()
-  addressLine!: string;
+  address!: string;
 
   @ApiProperty()
   @IsString()
@@ -26,11 +26,14 @@ export class CreateCustomerAddressDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  lat?: number;
+  @IsString()
+  landmark?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsNumber()
-  lng?: number;
+  latitude!: number;
+
+  @ApiProperty()
+  @IsNumber()
+  longitude!: number;
 }

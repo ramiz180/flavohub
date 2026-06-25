@@ -10,7 +10,7 @@ export class UpdateCustomerAddressDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  addressLine?: string;
+  address?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -30,11 +30,16 @@ export class UpdateCustomerAddressDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  lat?: number;
+  @IsString()
+  landmark?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
-  lng?: number;
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
 }

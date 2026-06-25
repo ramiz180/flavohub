@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../secure-storage';
 import { create } from 'zustand';
 import type { Customer } from '../../types';
 import { customerApi } from '../api';

@@ -7,6 +7,7 @@ import {
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RestaurantGateway } from '../restaurant-gateway/restaurant.gateway';
+import { DeliveryService } from '../delivery/delivery.service';
 import { ListCustomerOrdersQueryDto } from './dto/list-customer-orders-query.dto';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class RestaurantCustomerOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: RestaurantGateway,
+    private readonly deliveryService: DeliveryService,
   ) {}
 
   private async getOwnerRestaurant(ownerId: string) {
@@ -45,6 +47,7 @@ export class RestaurantCustomerOrdersService {
         include: {
           items: true,
           customer: { select: { id: true, name: true, phone: true } },
+          deliveries: true,
         },
       }),
     ]);
@@ -76,6 +79,7 @@ export class RestaurantCustomerOrdersService {
       include: {
         items: true,
         customer: { select: { id: true, name: true, phone: true } },
+        deliveries: true,
       },
     });
 
@@ -91,12 +95,53 @@ export class RestaurantCustomerOrdersService {
     return updated;
   }
 
-  accept(ownerId: string, orderId: string) {
-    return this.changeStatus(ownerId, orderId, OrderStatus.ACCEPTED, [OrderStatus.PLACED]);
+  async accept(ownerId: string, orderId: string) {
+    const updated = await this.changeStatus(ownerId, orderId, OrderStatus.ACCEPTED, [OrderStatus.PLACED]);
+    
+    // Automatically trigger delivery assignment when accepted
+    try {
+      await this.deliveryService.assignDelivery(orderId);
+    } catch (error) {
+      console.error('Failed to assign delivery:', error);
+      // We don't fail the order acceptance if delivery assignment fails immediately
+    }
+
+    return updated;
   }
 
   reject(ownerId: string, orderId: string) {
     return this.changeStatus(ownerId, orderId, OrderStatus.REJECTED, [OrderStatus.PLACED]);
+  }
+
+  async cancel(ownerId: string, orderId: string) {
+    const updated = await this.changeStatus(ownerId, orderId, OrderStatus.CANCELLED, [OrderStatus.PLACED, OrderStatus.ACCEPTED]);
+    
+    // Attempt to cancel the delivery if it exists
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { orderId: orderId, status: { notIn: ['CANCELLED', 'DELIVERED', 'FAILED'] } }
+    });
+    
+    if (delivery) {
+      try {
+        await this.deliveryService.cancelDelivery(delivery.id);
+      } catch (error) {
+        console.error(`Failed to cancel delivery for order ${orderId}:`, error);
+      }
+    }
+    
+    return updated;
+  }
+
+  async getDelivery(ownerId: string, orderId: string) {
+    await this.getOwnerRestaurant(ownerId); // Ensure restaurant exists
+    
+    const order = await this.prisma.customerOrder.findUnique({
+      where: { id: orderId }
+    });
+    
+    if (!order) throw new NotFoundException('Order not found');
+    
+    return this.deliveryService.getDeliveryStatus(orderId);
   }
 
   preparing(ownerId: string, orderId: string) {

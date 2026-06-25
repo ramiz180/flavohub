@@ -55,7 +55,7 @@ async function apiFetch<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && path !== '/auth/login') {
     dispatchUnauthorized();
     throw new AuthError();
   }

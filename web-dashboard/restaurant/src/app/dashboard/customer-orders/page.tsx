@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import AuthGuard from '@/components/auth-guard';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import type { CustomerOrder } from '@/types/customer-order';
@@ -10,8 +9,8 @@ import type { CustomerOrder } from '@/types/customer-order';
 const BASE_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3000';
 
 const INCOMING_STATUSES = ['PLACED'];
-const ACTIVE_STATUSES = ['ACCEPTED', 'PREPARING', 'READY'];
-const HISTORY_STATUSES = ['DELIVERED', 'REJECTED'];
+const ACTIVE_STATUSES = ['ACCEPTED', 'PREPARING', 'READY', 'RIDER_ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY'];
+const HISTORY_STATUSES = ['DELIVERED', 'REJECTED', 'CANCELLED'];
 
 function beep() {
   try {
@@ -44,6 +43,8 @@ function StatusBadge({ status }: { status: string }) {
     PREPARING: 'bg-orange-100 text-orange-800',
     READY: 'bg-emerald-100 text-emerald-800',
     OUT_FOR_DELIVERY: 'bg-purple-100 text-purple-800',
+    RIDER_ASSIGNED: 'bg-indigo-100 text-indigo-800',
+    PICKED_UP: 'bg-teal-100 text-teal-800',
     DELIVERED: 'bg-gray-100 text-gray-600',
     REJECTED: 'bg-red-100 text-red-700',
     CANCELLED: 'bg-gray-100 text-gray-500',
@@ -92,28 +93,117 @@ function CustomerOrderCard({
         <div>
           <span className="font-semibold text-gray-800">{customerName}</span>
           <span className="ml-2 font-mono text-xs text-gray-500">{order.id.slice(0, 8)}…</span>
+          {order.customer?.phone && (
+            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+              📞 {order.customer.phone}
+            </div>
+          )}
+          {order.deliveryAddress && (
+            <div className="text-xs text-gray-500 mt-0.5 flex items-start gap-1">
+              📍 <span className="truncate max-w-xs">{
+                typeof order.deliveryAddress === 'string' 
+                  ? order.deliveryAddress 
+                  : (order.deliveryAddress as any)?.addressLine || JSON.stringify(order.deliveryAddress)
+              }</span>
+            </div>
+          )}
         </div>
         <StatusBadge status={order.status} />
       </div>
 
-      <p className="mt-1 text-sm text-gray-600">{itemsSummary || 'No items'}</p>
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Order Details */}
+        <div>
+          <p className="text-sm text-gray-600">{itemsSummary || 'No items'}</p>
+          <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+            <span className={`font-semibold px-2 py-0.5 rounded-sm ${order.paymentMethod === 'COD' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+              {order.paymentMethod || 'ONLINE'}
+            </span>
+            <span className={order.paymentStatus === 'PAID' ? 'text-emerald-600 font-medium' : 'text-gray-500'}>
+              {order.paymentStatus || 'PENDING'}
+            </span>
+            <span>{timeAgo(order.createdAt)}</span>
+          </div>
+          {order.note && <p className="mt-2 text-xs italic text-gray-500 bg-gray-50 p-2 rounded">"{order.note}"</p>}
+        </div>
 
-      <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
-        <span>₹{parseFloat(order.totalAmount).toFixed(2)}</span>
-        <span>{timeAgo(order.createdAt)}</span>
+        {/* Financial Breakdown */}
+        <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 text-xs">
+          <div className="flex justify-between text-gray-500">
+            <span>Subtotal</span>
+            <span>₹{(parseFloat(order.totalAmount) - parseFloat(order.taxAmount || '0') - parseFloat(order.deliveryCharges || '0')).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500 mt-1">
+            <span>Taxes</span>
+            <span>₹{parseFloat(order.taxAmount || '0').toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-gray-500 mt-1">
+            <span>Platform Fee</span>
+            <span className="text-red-500">-₹{parseFloat(order.platformFee || '0').toFixed(2)}</span>
+          </div>
+          <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between font-semibold text-gray-800">
+            <span>Net Earnings</span>
+            <span className="text-emerald-600">₹{parseFloat(order.netEarnings || '0').toFixed(2)}</span>
+          </div>
+        </div>
       </div>
 
-      {order.note && <p className="mt-1 text-xs italic text-gray-500">"{order.note}"</p>}
+      {order.deliveries && order.deliveries[0] && (
+        <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-emerald-100/50 pb-3 mb-3">
+            <div className="flex items-center gap-3">
+              <span className="bg-emerald-600 text-white px-2 py-1 rounded-md text-xs font-bold tracking-wider shadow-sm">
+                SHADOWFAX
+              </span>
+              <span className="text-[11px] font-medium uppercase tracking-wider bg-emerald-200/50 text-emerald-800 px-2.5 py-1 rounded-full">
+                {order.deliveries[0].status}
+              </span>
+            </div>
+            {order.deliveries[0].trackingUrl && (
+              <a href={order.deliveries[0].trackingUrl} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-2">
+                Track Live Map 📍
+              </a>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-emerald-900/60 text-xs mb-1">Rider Name</p>
+              <p className="font-medium text-emerald-900">{order.deliveries[0].riderName || 'Assigning...'}</p>
+            </div>
+            <div>
+              <p className="text-emerald-900/60 text-xs mb-1">Rider Phone</p>
+              <p className="font-medium text-emerald-900">{order.deliveries[0].riderPhone || '---'}</p>
+            </div>
+            <div>
+              <p className="text-emerald-900/60 text-xs mb-1">Vehicle</p>
+              <p className="font-medium text-emerald-900">{order.deliveries[0].riderVehicle || '---'}</p>
+            </div>
+            <div>
+              <p className="text-emerald-900/60 text-xs mb-1">Tracking ID</p>
+              <p className="font-mono font-medium text-emerald-900 truncate" title={order.deliveries[0].shipmentId || ''}>
+                {order.deliveries[0].shipmentId || '---'}
+              </p>
+            </div>
+          </div>
+          
+          {order.deliveries[0].eta && (
+            <div className="mt-3 pt-3 border-t border-emerald-100/50 flex items-center gap-2 text-emerald-800 text-xs font-medium">
+              ⏱️ ETA: {new Date(order.deliveries[0].eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         {order.status === 'PLACED' && (
           <>
             <button
               onClick={() => void doAction('accept')}
               disabled={busy}
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
             >
-              Accept
+              Accept Order
             </button>
             <button
               onClick={() => void doAction('reject')}
@@ -121,6 +211,17 @@ function CustomerOrderCard({
               className="rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
               Reject
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to cancel this order?')) {
+                  void doAction('cancel');
+                }
+              }}
+              disabled={busy}
+              className="rounded text-gray-500 hover:text-red-600 hover:underline px-2 py-1.5 text-sm font-medium ml-auto"
+            >
+              Cancel Order
             </button>
           </>
         )}
@@ -143,13 +244,10 @@ function CustomerOrderCard({
           </button>
         )}
         {order.status === 'READY' && (
-          <button
-            onClick={() => void doAction('delivered')}
-            disabled={busy}
-            className="rounded bg-gray-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            Mark Delivered
-          </button>
+          <span className="text-sm font-medium text-blue-600 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            Waiting for Rider
+          </span>
         )}
       </div>
 
@@ -343,6 +441,9 @@ export default function CustomerOrdersPage() {
       case 'preparing':
         updated = await apiClient.customerOrders.preparing(accessToken, id);
         break;
+      case 'cancel':
+        updated = await apiClient.customerOrders.cancel(accessToken, id);
+        break;
       case 'ready':
         updated = await apiClient.customerOrders.ready(accessToken, id);
         break;
@@ -360,7 +461,7 @@ export default function CustomerOrdersPage() {
   const history = orders.filter((o) => HISTORY_STATUSES.includes(o.status)).slice(0, 20);
 
   return (
-    <AuthGuard>
+    <>
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-8px); }
@@ -431,6 +532,6 @@ export default function CustomerOrdersPage() {
           </div>
         )}
       </div>
-    </AuthGuard>
+    </>
   );
 }

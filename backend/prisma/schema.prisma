@@ -64,13 +64,16 @@ model Restaurant {
   cuisineType     String?
   latitude        Float?
   longitude       Float?
+  location        Unsupported("geometry(Point, 4326)")?
   status          RestaurantStatus  @default(PENDING)
   isActive        Boolean           @default(false)
   rejectionReason String?
   // Per-restaurant markup override; null means use PlatformPricing global markup
   markupType      MarkupType?
   markupValue     Decimal?          @db.Decimal(10, 2)
+  deliveryRadiusKm Float            @default(10.0)
   logoUrl         String?
+  coverImageUrl   String?
   // Owner link — set by admin; null until an owner is assigned
   ownerId         String?           @unique
   owner           User?             @relation(fields: [ownerId], references: [id])
@@ -192,8 +195,39 @@ enum OrderStatus {
   REJECTED
   PREPARING
   READY
+  RIDER_ASSIGNED
+  PICKED_UP
   OUT_FOR_DELIVERY
   DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  ONLINE
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  RECEIVED
+  REFUNDED
+}
+
+enum DeliveryPartner {
+  SHADOWFAX
+  PORTER
+  DELHIVERY
+  BORZO
+  FLAVOHUB
+}
+
+enum DeliveryStatus {
+  ASSIGNED
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
   CANCELLED
 }
 
@@ -211,7 +245,9 @@ model Order {
   surgeFee            Decimal?    @db.Decimal(10, 2)
   discountAmount      Decimal?    @db.Decimal(10, 2)
   total               Decimal?    @db.Decimal(10, 2)
-  deliveryAddress     Json?
+  deliveryAddress Json?
+  pickupLocation  Unsupported("geometry(Point, 4326)")?
+  dropoffLocation Unsupported("geometry(Point, 4326)")?
   specialInstructions String?
   rejectionReason     String?
   placedAt            DateTime    @default(now())
@@ -274,6 +310,7 @@ model CustomerAddress {
   pincode     String
   lat         Float?
   lng         Float?
+  location    Unsupported("geometry(Point, 4326)")?
   isDefault   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -302,18 +339,28 @@ model CartItem {
 }
 
 model CustomerOrder {
-  id              String             @id @default(cuid())
-  customerId      String
-  customer        Customer           @relation(fields: [customerId], references: [id])
-  restaurantId    String
-  restaurant      Restaurant         @relation(fields: [restaurantId], references: [id])
-  status          OrderStatus        @default(PLACED)
-  totalAmount     Decimal            @db.Decimal(10, 2)
-  deliveryAddress String
-  note            String?
-  items           CustomerOrderItem[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id                 String             @id @default(cuid())
+  customerId         String
+  customer           Customer           @relation(fields: [customerId], references: [id])
+  restaurantId       String
+  restaurant         Restaurant         @relation(fields: [restaurantId], references: [id])
+  status             OrderStatus        @default(PLACED)
+  totalAmount        Decimal            @db.Decimal(10, 2)
+  deliveryAddress    String
+  note               String?
+  
+  // Financial & Payment Fields
+  paymentMethod      PaymentMethod      @default(ONLINE)
+  paymentStatus      PaymentStatus      @default(PENDING)
+  deliveryCharges    Decimal            @default(0) @db.Decimal(10, 2)
+  platformFee        Decimal            @default(0) @db.Decimal(10, 2)
+  taxAmount          Decimal            @default(0) @db.Decimal(10, 2)
+  netEarnings        Decimal            @default(0) @db.Decimal(10, 2)
+
+  items              CustomerOrderItem[]
+  deliveries         Delivery[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 }
 
 model CustomerOrderItem {
@@ -325,4 +372,60 @@ model CustomerOrderItem {
   price      Decimal       @db.Decimal(10, 2)
   quantity   Int
   createdAt  DateTime      @default(now())
+}
+
+model Delivery {
+  id              String           @id @default(cuid())
+  orderId         String
+  customerOrder   CustomerOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partner         DeliveryPartner
+  shipmentId      String?
+  riderName       String?
+  riderPhone      String?
+  riderVehicle    String?
+  status          DeliveryStatus   @default(ASSIGNED)
+  trackingUrl     String?
+  eta             DateTime?
+  supportsLiveGps Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  trackingUpdates DeliveryTracking[]
+  events          DeliveryEvent[]
+}
+
+model DeliveryTracking {
+  id         String   @id @default(cuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  latitude   Float
+  longitude  Float
+  location   Unsupported("geometry(Point, 4326)")?
+  timestamp  DateTime @default(now())
+}
+
+model DeliveryEvent {
+  id              String         @id @default(cuid())
+  deliveryId      String
+  delivery        Delivery       @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  status          DeliveryStatus
+  rawPayload      Json?
+  createdAt       DateTime       @default(now())
+
+  @@index([deliveryId])
+}
+
+model DeliveryAnalytics {
+  id                String   @id @default(cuid())
+  deliveryId        String   @unique
+  partner           DeliveryPartner
+  assignmentTime    DateTime?
+  pickupTime        DateTime?
+  deliveryTime      DateTime?
+  etaAccuracyMin    Int?      // difference between ETA and actual delivery in minutes
+  isSuccess         Boolean   @default(false)
+  isFailed          Boolean   @default(false)
+  deliveryDuration  Int?      // duration from assignment to delivery in minutes
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
-import AuthGuard from '@/components/auth-guard';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, Plus, MoreVertical, Eye, Edit, CheckCircle, 
+  XCircle, Ban, Trash2, MapPin, Phone, Star
+} from 'lucide-react';
 import type {
   ListMeta,
   ListRestaurantsQuery,
@@ -12,13 +16,7 @@ import type {
   RestaurantStatus,
 } from '@/types/restaurant';
 
-const STATUS_COLORS: Record<RestaurantStatus, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
-};
-
-function RestaurantListContent() {
+export default function RestaurantsPage() {
   const { accessToken } = useAuth();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [meta, setMeta] = useState<ListMeta>({ total: 0, page: 1, pageSize: 20 });
@@ -30,10 +28,12 @@ function RestaurantListContent() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  // Dropdown state for actions
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!accessToken) return;
     let cancelled = false;
-
     setLoading(true);
     setError(null);
 
@@ -51,17 +51,13 @@ function RestaurantListContent() {
         }
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load restaurants');
-        }
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load restaurants');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [accessToken, statusFilter, activeFilter, search, page]);
 
   const totalPages = Math.ceil(meta.total / meta.pageSize) || 1;
@@ -71,154 +67,269 @@ function RestaurantListContent() {
     setPage(1);
   }
 
-  return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
-              ← Dashboard
-            </Link>
-            <h1 className="mt-1 text-2xl font-semibold">Restaurants</h1>
-          </div>
-          <Link
-            href="/dashboard/restaurants/new"
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            + New Restaurant
-          </Link>
-        </div>
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'APPROVED': return 'bg-emerald-100 text-emerald-700 ring-emerald-200';
+      case 'PENDING': return 'bg-amber-100 text-amber-700 ring-amber-200';
+      case 'REJECTED': return 'bg-red-100 text-red-700 ring-red-200';
+      default: return 'bg-slate-100 text-slate-700 ring-slate-200';
+    }
+  };
 
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded bg-white p-4 shadow">
+  return (
+    <div className="space-y-6 max-w-[1600px] mx-auto">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-brand-secondary">Restaurants</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {meta.total > 0 ? `Manage ${meta.total} active and pending restaurants.` : 'Manage and approve restaurant listings.'}
+          </p>
+        </div>
+        <Link
+          href="/dashboard/restaurants/new"
+          className="inline-flex items-center gap-2 rounded-xl bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white shadow-premium transition-all hover:bg-[#E66000] hover:-translate-y-0.5"
+        >
+          <Plus className="h-4 w-4" />
+          Add Restaurant
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100/50">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search name or city…"
+            placeholder="Search by restaurant name or city..."
             value={search}
             onChange={(e) => onFilterChange(() => setSearch(e.target.value))}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border-0 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-brand-primary transition-all"
           />
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              onFilterChange(() => setStatusFilter(e.target.value as RestaurantStatus | 'ALL'))
-            }
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="ALL">All statuses</option>
-            <option value="PENDING">Pending</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
-          <select
-            value={activeFilter}
-            onChange={(e) =>
-              onFilterChange(() => setActiveFilter(e.target.value as 'ALL' | 'active' | 'inactive'))
-            }
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="ALL">Active &amp; Inactive</option>
-            <option value="active">Active only</option>
-            <option value="inactive">Inactive only</option>
-          </select>
-          {meta.total > 0 && (
-            <span className="ml-auto text-sm text-gray-500">{meta.total} total</span>
-          )}
         </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => onFilterChange(() => setStatusFilter(e.target.value as RestaurantStatus | 'ALL'))}
+          className="rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-brand-primary outline-none cursor-pointer"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="PENDING">Pending Approval</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+        <select
+          value={activeFilter}
+          onChange={(e) => onFilterChange(() => setActiveFilter(e.target.value as 'ALL' | 'active' | 'inactive'))}
+          className="rounded-xl border-0 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 focus:ring-2 focus:ring-brand-primary outline-none cursor-pointer"
+        >
+          <option value="ALL">All States</option>
+          <option value="active">Active Online</option>
+          <option value="inactive">Currently Offline</option>
+        </select>
+      </div>
 
-        <div className="rounded bg-white shadow">
-          {error && (
-            <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+      {/* Premium Table Area */}
+      <div className="relative rounded-2xl bg-white shadow-premium ring-1 ring-slate-100">
+        {error && (
+          <div className="border-b border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>
+        )}
 
-          {loading ? (
-            <div className="px-4 py-12 text-center text-sm text-gray-500">Loading…</div>
-          ) : restaurants.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm text-gray-500">
-              No restaurants found.
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">City</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Active</th>
-                  <th className="px-4 py-3" />
+        <div className="overflow-x-auto lg:overflow-visible pb-4">
+          <table className="w-full whitespace-nowrap text-left text-sm">
+            <thead className="bg-slate-50/80 border-b border-slate-100">
+              <tr>
+                <th className="px-6 py-4 font-semibold text-slate-500 uppercase tracking-wider text-xs">Restaurant</th>
+                <th className="px-6 py-4 font-semibold text-slate-500 uppercase tracking-wider text-xs">Contact</th>
+                <th className="px-6 py-4 font-semibold text-slate-500 uppercase tracking-wider text-xs">Rating</th>
+                <th className="px-6 py-4 font-semibold text-slate-500 uppercase tracking-wider text-xs">Status</th>
+                <th className="px-6 py-4 font-semibold text-slate-500 uppercase tracking-wider text-xs">State</th>
+                <th className="px-6 py-4 font-semibold text-slate-500 uppercase tracking-wider text-xs text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-primary" />
+                      <p className="text-slate-500 font-medium text-sm">Loading restaurants...</p>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {restaurants.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{r.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{r.city}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[r.status]}`}
-                      >
+              ) : restaurants.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-20 text-center text-slate-500">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 mb-3">
+                      <Search className="h-6 w-6 text-slate-400" />
+                    </div>
+                    <p className="font-medium">No restaurants found matching your criteria</p>
+                  </td>
+                </tr>
+              ) : (
+                restaurants.map((r, i) => {
+                  const isLastRows = restaurants.length > 2 && i >= restaurants.length - 2;
+                  
+                  return (
+                  <motion.tr 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={r.id} 
+                    className="transition-colors hover:bg-slate-50/50 group"
+                  >
+                    {/* Logo & Name */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                          {r.logoUrl ? (
+                            <img src={r.logoUrl} alt={r.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-indigo-600 font-bold">{r.name.charAt(0)}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900 group-hover:text-brand-primary transition-colors">{r.name}</p>
+                          <p className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                            <MapPin className="h-3 w-3" /> {r.city}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Contact */}
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <p className="flex items-center gap-1.5 text-slate-600">
+                          <Phone className="h-3.5 w-3.5 text-slate-400" /> {r.phone || 'N/A'}
+                        </p>
+                        <p className="text-xs text-slate-500">{r.email || 'No email'}</p>
+                      </div>
+                    </td>
+
+                    {/* Rating (Mock for now as API doesn't return it) */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                        <span className="font-semibold text-slate-700">4.8</span>
+                        <span className="text-xs text-slate-400">(120)</span>
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${getStatusBadge(r.status)}`}>
                         {r.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+
+                    {/* Active State */}
+                    <td className="px-6 py-4">
                       {r.isActive ? (
-                        <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                          Active
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          <span className="text-sm font-medium text-slate-700">Online</span>
+                        </div>
                       ) : (
-                        <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                          Inactive
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-slate-300"></span>
+                          <span className="text-sm font-medium text-slate-500">Offline</span>
+                        </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/dashboard/restaurants/${r.id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        View →
-                      </Link>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 text-right">
+                      <div className="relative inline-block text-left">
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === r.id ? null : r.id)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                        >
+                          <MoreVertical className="h-5 w-5" />
+                        </button>
+
+                        <AnimatePresence>
+                          {openDropdownId === r.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenDropdownId(null)} />
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.1 }}
+                                className={`absolute right-0 z-50 w-48 rounded-xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none divide-y divide-slate-100 ${
+                                  isLastRows ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'
+                                }`}
+                              >
+                                <div className="p-1">
+                                  <Link href={`/dashboard/restaurants/${r.id}`} className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-primary">
+                                    <Eye className="h-4 w-4 text-slate-400 group-hover:text-brand-primary" /> View Details
+                                  </Link>
+                                  <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-primary">
+                                    <Edit className="h-4 w-4 text-slate-400 group-hover:text-brand-primary" /> Edit
+                                  </button>
+                                </div>
+                                <div className="p-1">
+                                  {r.status !== 'APPROVED' && (
+                                    <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
+                                      <CheckCircle className="h-4 w-4 text-emerald-500" /> Approve
+                                    </button>
+                                  )}
+                                  {r.status !== 'REJECTED' && (
+                                    <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-700 hover:bg-red-50">
+                                      <XCircle className="h-4 w-4 text-red-500" /> Reject
+                                    </button>
+                                  )}
+                                  <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-amber-700 hover:bg-amber-50">
+                                    <Ban className="h-4 w-4 text-amber-500" /> Suspend
+                                  </button>
+                                </div>
+                                <div className="p-1">
+                                  <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                                    <Trash2 className="h-4 w-4" /> Delete
+                                  </button>
+                                </div>
+                              </motion.div>
+                            </>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-gray-600">
-              <span>
-                Page {meta.page} of {totalPages}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="rounded border px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-40"
-                >
-                  Prev
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="rounded border px-3 py-1 text-sm hover:bg-gray-100 disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+                  </motion.tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
-    </main>
-  );
-}
 
-export default function RestaurantsPage() {
-  return (
-    <AuthGuard>
-      <RestaurantListContent />
-    </AuthGuard>
+        {/* Pagination Footer */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-6 py-4">
+            <span className="text-sm text-slate-500 font-medium">
+              Showing page <span className="text-slate-900 font-bold">{meta.page}</span> of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-slate-50 disabled:opacity-50 transition-all"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
