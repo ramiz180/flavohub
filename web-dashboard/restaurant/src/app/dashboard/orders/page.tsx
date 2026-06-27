@@ -90,9 +90,15 @@ function OrderCard({
             <span>Delivery: {delivery.partner}</span>
             <span className="inline-block rounded-full bg-emerald-200 px-2 py-0.5 text-[10px] uppercase tracking-wider">{delivery.status}</span>
           </div>
-          <div className="mt-2 text-xs font-medium text-emerald-700">
+          <div className="mt-2 text-sm text-slate-700">
             {delivery.riderName ? `Rider: ${delivery.riderName} (${delivery.riderPhone})` : 'Assigning rider...'}
           </div>
+          {(delivery.awbNumber || delivery.trackingId) && (
+            <div className="mt-1 text-xs text-slate-500 font-mono">
+              {delivery.awbNumber && `AWB: ${delivery.awbNumber} `}
+              {delivery.trackingId && `TRK: ${delivery.trackingId}`}
+            </div>
+          )}
           {delivery.eta && (
             <div className="mt-1 text-xs font-medium text-emerald-700">
               ETA: {fmt(delivery.eta)}

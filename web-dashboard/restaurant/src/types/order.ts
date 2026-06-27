@@ -13,6 +13,8 @@ export interface Delivery {
   orderId: string;
   partner: string;
   shipmentId: string | null;
+  trackingId?: string | null;
+  awbNumber?: string | null;
   riderName: string | null;
   riderPhone: string | null;
   riderVehicle: string | null;

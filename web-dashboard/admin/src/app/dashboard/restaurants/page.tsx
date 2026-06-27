@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
@@ -31,10 +31,10 @@ export default function RestaurantsPage() {
   // Dropdown state for actions
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchRestaurants = useCallback((showLoading = true) => {
     if (!accessToken) return;
     let cancelled = false;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setError(null);
 
     const query: ListRestaurantsQuery = { page, pageSize: 20 };
@@ -54,11 +54,47 @@ export default function RestaurantsPage() {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load restaurants');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && showLoading) setLoading(false);
       });
 
     return () => { cancelled = true; };
   }, [accessToken, statusFilter, activeFilter, search, page]);
+
+  useEffect(() => {
+    const cancel = fetchRestaurants(true);
+    return cancel;
+  }, [fetchRestaurants]);
+
+  async function handleAction(action: () => Promise<unknown>) {
+    try {
+      await action();
+      fetchRestaurants(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Action failed');
+      fetchRestaurants(false); // revert optimistic update
+    }
+  }
+
+  async function handleApprove(id: string) {
+    if (!accessToken) return;
+    setRestaurants(prev => prev.map(r => r.id === id ? { ...r, status: 'APPROVED' } : r));
+    await handleAction(() => apiClient.restaurants.approve(accessToken, id));
+  }
+
+  async function handleReject(id: string) {
+    if (!accessToken) return;
+    const reason = window.prompt("Enter rejection reason:");
+    if (!reason?.trim()) return;
+    setRestaurants(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED' } : r));
+    await handleAction(() => apiClient.restaurants.reject(accessToken, id, reason.trim()));
+  }
+
+  async function handleSuspend(id: string) {
+    if (!accessToken) return;
+    if (!window.confirm("Are you sure you want to suspend/deactivate this restaurant?")) return;
+    setRestaurants(prev => prev.map(r => r.id === id ? { ...r, isActive: false } : r));
+    await handleAction(() => apiClient.restaurants.deactivate(accessToken, id));
+  }
 
   const totalPages = Math.ceil(meta.total / meta.pageSize) || 1;
 
@@ -267,28 +303,23 @@ export default function RestaurantsPage() {
                                   <Link href={`/dashboard/restaurants/${r.id}`} className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-primary">
                                     <Eye className="h-4 w-4 text-slate-400 group-hover:text-brand-primary" /> View Details
                                   </Link>
-                                  <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-primary">
+                                  <Link href={`/dashboard/restaurants/${r.id}?edit=true`} className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-primary">
                                     <Edit className="h-4 w-4 text-slate-400 group-hover:text-brand-primary" /> Edit
-                                  </button>
+                                  </Link>
                                 </div>
                                 <div className="p-1">
                                   {r.status !== 'APPROVED' && (
-                                    <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
+                                    <button onClick={() => { setOpenDropdownId(null); void handleApprove(r.id); }} className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">
                                       <CheckCircle className="h-4 w-4 text-emerald-500" /> Approve
                                     </button>
                                   )}
                                   {r.status !== 'REJECTED' && (
-                                    <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-700 hover:bg-red-50">
+                                    <button onClick={() => { setOpenDropdownId(null); void handleReject(r.id); }} className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-700 hover:bg-red-50">
                                       <XCircle className="h-4 w-4 text-red-500" /> Reject
                                     </button>
                                   )}
-                                  <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-amber-700 hover:bg-amber-50">
+                                  <button onClick={() => { setOpenDropdownId(null); void handleSuspend(r.id); }} className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-amber-700 hover:bg-amber-50">
                                     <Ban className="h-4 w-4 text-amber-500" /> Suspend
-                                  </button>
-                                </div>
-                                <div className="p-1">
-                                  <button className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-                                    <Trash2 className="h-4 w-4" /> Delete
                                   </button>
                                 </div>
                               </motion.div>

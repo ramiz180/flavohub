@@ -135,17 +135,6 @@ export default function PremiumLocationScreen() {
         pincode,
       });
 
-      // 2. Save as an address to backend for future usage (Optional, but user requested saving lat/lng/address)
-      await customerApi.addresses.create({
-        address: addressLine,
-        city: city || district || 'Unknown',
-        state: stateName || 'Unknown',
-        pincode: pincode ? pincode.replace(/\s/g, '').slice(0, 6).padStart(6, '0') : '000000',
-        label: 'Home',
-        latitude: region.latitude,
-        longitude: region.longitude,
-      });
-
       // Navigate to Home
       router.replace('/(tabs)');
     } catch (e) {

@@ -45,7 +45,7 @@ const CATEGORIES = [
 ];
 
 const TAB_BAR_HEIGHT = 60;
-const DELIVERY_RADIUS = 50000;
+const DELIVERY_RADIUS_KM = 50; // 50 km
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -218,22 +218,31 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Auto-request location on mount if we don't have coords yet
   useEffect(() => {
-    if (lat === null) {
+    if (lat === null || lng === null) {
+      console.log('[Home] No location stored – requesting now...');
       requestLocation();
     }
   }, []);
 
   const fetchAll = useCallback(async (userLat: number, userLng: number) => {
+    console.log(`[Home] Fetching restaurants for lat=${userLat} lng=${userLng} radius=${DELIVERY_RADIUS_KM}km`);
     try {
       setError(null);
       const [nearbyData, popularData] = await Promise.all([
-        getNearbyRestaurants(userLat, userLng, DELIVERY_RADIUS),
-        getPopularRestaurants(userLat, userLng, DELIVERY_RADIUS),
+        getNearbyRestaurants(userLat, userLng, DELIVERY_RADIUS_KM),
+        getPopularRestaurants(userLat, userLng, DELIVERY_RADIUS_KM),
       ]);
+      console.log(`[Home] nearby=${nearbyData.length} popular=${popularData.length}`);
       setNearby(nearbyData);
       setPopular(popularData);
-    } catch {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[Home] fetchAll error:', msg);
+      // Show empty state instead of generic error when the API returns 200 with 0 results
+      setNearby([]);
+      setPopular([]);
       setError('Could not load restaurants. Please try again.');
     } finally {
       setLoading(false);
@@ -243,6 +252,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (lat !== null && lng !== null) {
+      console.log(`[Home] Got location: lat=${lat} lng=${lng}`);
       setLoading(true);
       fetchAll(lat, lng);
     }

@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { 
   IndianRupee, TrendingUp, Wallet, Landmark, 
   CreditCard, Banknote, ShieldCheck, Receipt, 
-  AlertCircle, Activity
+  AlertCircle, Activity, Truck
 } from 'lucide-react';
 
 const containerVariants = {

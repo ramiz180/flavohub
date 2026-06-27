@@ -385,6 +385,11 @@ model Delivery {
   riderVehicle    String?
   status          DeliveryStatus   @default(ASSIGNED)
   trackingUrl     String?
+  awbNumber       String?
+  trackingId      String?
+  latitude        Float?
+  longitude       Float?
+  lastSyncedAt    DateTime?
   eta             DateTime?
   supportsLiveGps Boolean          @default(false)
   createdAt       DateTime         @default(now())

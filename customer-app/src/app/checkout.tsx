@@ -65,7 +65,6 @@ export default function CheckoutScreen() {
 
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [addressLine, setAddressLine] = useState('');
   const [note, setNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [loading, setLoading] = useState(false);
@@ -79,9 +78,22 @@ export default function CheckoutScreen() {
           getCart(),
         ]);
         const adrs = addrRes.data.data;
-        setAddresses(adrs);
-        if (adrs.length > 0) {
-          setSelectedAddressId(adrs[0].id);
+        
+        // Filter and deduplicate
+        const validAdrs = adrs.filter((a: any) => a.lat != null && a.lng != null && a.addressLine && a.addressLine.toLowerCase() !== 'locating...');
+        const uniqueAdrs = [];
+        const seen = new Set();
+        for (const a of validAdrs) {
+          const key = `${a.label}-${a.lat}-${a.lng}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueAdrs.push(a);
+          }
+        }
+        
+        setAddresses(uniqueAdrs);
+        if (uniqueAdrs.length > 0) {
+          setSelectedAddressId(uniqueAdrs[0].id);
         }
         setCart(cartData);
       } catch (err) {}
@@ -90,8 +102,8 @@ export default function CheckoutScreen() {
   }, []);
 
   const handlePlaceOrder = async () => {
-    if (!selectedAddressId && !addressLine.trim()) {
-      Alert.alert('Address required', 'Please select or enter your delivery address');
+    if (!selectedAddressId) {
+      Alert.alert('Address required', 'Please select a delivery address');
       return;
     }
     if (!cart || !cart.restaurantId) {
@@ -101,16 +113,7 @@ export default function CheckoutScreen() {
 
     setLoading(true);
     try {
-      let finalAddressId = selectedAddressId;
-      if (!finalAddressId && addressLine.trim()) {
-        const res = await customerApi.addresses.create({
-          addressLine: addressLine.trim(),
-          city: 'Unknown',
-          state: 'Unknown',
-          pincode: '000000',
-        });
-        finalAddressId = res.data.data.id;
-      }
+      const finalAddressId = selectedAddressId;
 
       const subtotal = cart.items.reduce((sum, i) => sum + parseFloat(i.menuItem.price) * i.quantity, 0);
       const discount = parseInt(couponDiscount ?? '0', 10) || 0;
@@ -265,7 +268,12 @@ export default function CheckoutScreen() {
           <View style={styles.card}>
             {addresses.length > 0 ? (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Select Address</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xs }}>
+                  <Text style={[styles.inputLabel, { marginBottom: 0 }]}>Select Address</Text>
+                  <TouchableOpacity onPress={() => router.push('/add-address')}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>+ Add New</Text>
+                  </TouchableOpacity>
+                </View>
                 {addresses.map((addr) => (
                   <TouchableOpacity
                     key={addr.id}
@@ -281,18 +289,11 @@ export default function CheckoutScreen() {
                 ))}
               </View>
             ) : (
-              <View style={styles.inputGroup}>
-                 <Text style={styles.inputLabel}>Delivery Address</Text>
-                 <TextInput
-                   style={styles.input}
-                   placeholder="Flat / House no, Building, Street..."
-                   placeholderTextColor={colors.muted}
-                   value={addressLine}
-                   onChangeText={setAddressLine}
-                   multiline
-                   numberOfLines={3}
-                   textAlignVertical="top"
-                 />
+              <View style={[styles.inputGroup, { alignItems: 'center', paddingVertical: space.xl }]}>
+                <Text style={{ color: colors.muted, marginBottom: space.md }}>No saved addresses found.</Text>
+                <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add-address')}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add New Address</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -447,6 +448,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
     minHeight: 80,
     backgroundColor: colors.surfaceAlt,
+  },
+  addBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
   },
   addressOption: {
     borderWidth: 1,

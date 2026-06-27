@@ -1,4 +1,14 @@
-import { IsString, IsOptional, MaxLength, IsEnum, IsNumber, IsArray, ValidateNested, IsNotEmpty, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsEnum,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+  IsNotEmpty,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -37,25 +47,34 @@ export class CheckoutDto {
   @Type(() => CheckoutItemDto)
   items!: CheckoutItemDto[];
 
-  @ApiProperty({ example: 500 })
+  /**
+   * Frontend-supplied totals are accepted but IGNORED on the server.
+   * The backend recalculates all amounts from current database prices.
+   * These fields are optional to avoid breaking older app versions.
+   */
+  @ApiPropertyOptional({ example: 500, description: 'Frontend subtotal (informational only – server recalculates)' })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  subtotal!: number;
+  subtotal?: number;
 
-  @ApiProperty({ example: 40 })
+  @ApiPropertyOptional({ example: 40, description: 'Frontend delivery fee (informational only)' })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  deliveryFee!: number;
+  deliveryFee?: number;
 
-  @ApiProperty({ example: 25 })
+  @ApiPropertyOptional({ example: 25, description: 'Frontend taxes (informational only)' })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  taxes!: number;
+  taxes?: number;
 
-  @ApiProperty({ example: 565 })
+  @ApiPropertyOptional({ example: 565, description: 'Frontend total (informational only – server recalculates)' })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  total!: number;
+  total?: number;
 
   @ApiPropertyOptional({ example: 'Leave at door' })
   @IsOptional()
@@ -67,4 +86,9 @@ export class CheckoutDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
+
+  @ApiPropertyOptional({ example: 'coupon-uuid', description: 'Optional coupon/promo code ID' })
+  @IsOptional()
+  @IsString()
+  couponId?: string;
 }

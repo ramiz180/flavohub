@@ -16,12 +16,14 @@ import { DelhiveryProvider } from './providers/delhivery/delhivery.provider';
 import { FlavohubProvider } from './providers/flavohub/flavohub.provider';
 import { AppConfigModule } from '../config/app-config.module';
 import { AdminModule } from '../admin/admin.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
     RestaurantGatewayModule,
     AppConfigModule,
     AdminModule,
+    PrismaModule,
     BullModule.registerQueue({
       name: GPS_POLL_QUEUE_NAME,
     }),

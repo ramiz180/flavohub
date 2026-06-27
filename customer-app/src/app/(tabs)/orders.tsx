@@ -15,6 +15,7 @@ import { getOrders } from '../../lib/api';
 import { colors, cardShadow } from '../../constants/Colors';
 import { type } from '../../constants/Typography';
 import { space, radius } from '../../constants/Spacing';
+import { useSocketStore } from '../../lib/store/socket.store';
 
 const STATUS_COLORS: Record<string, string> = {
   PLACED: colors.primary,
@@ -42,6 +43,16 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'All' | 'Ongoing' | 'Delivered' | 'Cancelled'>('All');
+  const { connect, disconnect, socket } = useSocketStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      connect();
+      return () => {
+        // Disconnect can be handled globally, or left connected
+      };
+    }, [connect])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -72,7 +83,11 @@ export default function OrdersScreen() {
     const statusLabel = STATUS_LABELS[item.status] ?? item.status;
 
     return (
-      <View style={styles.orderCard}>
+      <TouchableOpacity 
+        style={styles.orderCard}
+        activeOpacity={0.8}
+        onPress={() => router.push(`/order/${item.id}`)}
+      >
         {/* Restaurant emoji + info */}
         <View style={styles.orderRow}>
           <View style={styles.orderIcon}>
@@ -90,15 +105,7 @@ export default function OrdersScreen() {
         <Text style={styles.itemsSummary} numberOfLines={1}>
           {item.items.map((i) => i.name).join(', ')}
         </Text>
-
-        {/* Reorder button */}
-        <TouchableOpacity
-          style={styles.reorderBtn}
-          onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
-        >
-          <Text style={styles.reorderBtnText}>Reorder</Text>
-        </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -232,22 +239,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: space.sm,
     marginLeft: 64,
-  },
-  reorderBtn: {
-    alignSelf: 'flex-end',
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.sm,
-    paddingHorizontal: space.md,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: space.sm,
-  },
-  reorderBtnText: {
-    ...type.caption,
-    color: colors.primary,
-    fontWeight: '600',
   },
   centered: {
     flex: 1,

@@ -49,12 +49,50 @@ export class AppConfigService {
     return this.configService.getOrThrow<string>('REDIS_URL');
   }
 
-  get shadowfaxEnv(): 'test' | 'production' {
-    return this.configService.getOrThrow<'test' | 'production'>('SHADOWFAX_ENV');
+  get shadowfaxEnabled(): boolean {
+    return this.configService.get<string>('SHADOWFAX_ENABLED') === 'true';
+  }
+
+  get shadowfaxEnv(): 'test' | 'production' | 'staging' {
+    return this.configService.get<'test' | 'production' | 'staging'>('SHADOWFAX_ENV') ?? 'test';
+  }
+
+  get shadowfaxBaseUrl(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_BASE_URL');
   }
 
   get shadowfaxApiKey(): string | undefined {
     return this.configService.get<string>('SHADOWFAX_API_KEY');
+  }
+
+  get shadowfaxClientId(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_CLIENT_ID');
+  }
+
+  get shadowfaxClientSecret(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_CLIENT_SECRET');
+  }
+
+  get shadowfaxAuthToken(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_AUTH_TOKEN');
+  }
+
+  get shadowfaxWebhookSecret(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_WEBHOOK_SECRET');
+  }
+
+  get shadowfaxTimeout(): number {
+    const val = this.configService.get<string>('SHADOWFAX_TIMEOUT');
+    return val ? parseInt(val, 10) : 30000;
+  }
+
+  get shadowfaxRetryCount(): number {
+    const val = this.configService.get<string>('SHADOWFAX_RETRY_COUNT');
+    return val ? parseInt(val, 10) : 3;
+  }
+
+  get shadowfaxLogging(): boolean {
+    return this.configService.get<string>('SHADOWFAX_LOGGING') === 'true';
   }
 
   get borzoEnv(): 'test' | 'production' {

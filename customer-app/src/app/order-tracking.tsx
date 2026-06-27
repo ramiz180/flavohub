@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,44 @@ import {
   Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { SafeScreen } from '../components/ui/SafeScreen';
 import type { OrderStatusUpdate, DeliveryStatusUpdate } from '../lib/socket';
 import { subscribeToOrderUpdates, subscribeToDeliveryStatus, subscribeToDeliveryLocation, subscribeToPaymentStatus } from '../lib/socket';
-import { getOrderDetails } from '../lib/api';
+import { getOrderDetails, apiClient } from '../lib/api';
 import { colors, cardShadow } from '../constants/Colors';
 import { type } from '../constants/Typography';
 import { space, radius } from '../constants/Spacing';
+
+/** Decode a Google Maps encoded polyline into lat/lng coordinate array */
+function decodePolyline(encoded: string): { latitude: number; longitude: number }[] {
+  const coords: { latitude: number; longitude: number }[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+  while (index < encoded.length) {
+    let b: number;
+    let shift = 0;
+    let result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+    coords.push({ latitude: lat * 1e-5, longitude: lng * 1e-5 });
+  }
+  return coords;
+}
 
 const { height } = Dimensions.get('window');
 
@@ -49,9 +78,27 @@ export default function OrderTrackingScreen() {
   const [customerLocation, setCustomerLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [restaurantLocation, setRestaurantLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[]>([]);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['40%', '85%'], []);
+
+  // Fetch the encoded polyline route from the backend Directions API
+  const fetchRoute = useCallback(async (
+    oLat: number, oLng: number,
+    dLat: number, dLng: number,
+  ) => {
+    try {
+      const res = await apiClient.get<string>('/location/route', {
+        params: { originLat: oLat, originLng: oLng, destLat: dLat, destLng: dLng },
+      });
+      if (res.data) {
+        setRouteCoords(decodePolyline(res.data));
+      }
+    } catch {
+      // Route fetch failed — fall back to straight line drawn by the Polyline below
+    }
+  }, []);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -60,14 +107,23 @@ export default function OrderTrackingScreen() {
         const order = await getOrderDetails(orderId as string);
         setCurrentStatus(order.status);
         if (order.paymentStatus) setPaymentStatus(order.paymentStatus);
-        
+
+        let resLat: number | null = null;
+        let resLng: number | null = null;
+        let cusLat: number | null = null;
+        let cusLng: number | null = null;
+
         if (order.restaurant?.latitude && order.restaurant?.longitude) {
-          setRestaurantLocation({ latitude: order.restaurant.latitude, longitude: order.restaurant.longitude });
+          resLat = order.restaurant.latitude;
+          resLng = order.restaurant.longitude;
+          setRestaurantLocation({ latitude: resLat, longitude: resLng });
         }
         if (order.deliveryAddress?.lat && order.deliveryAddress?.lng) {
-          setCustomerLocation({ latitude: order.deliveryAddress.lat, longitude: order.deliveryAddress.lng });
+          cusLat = order.deliveryAddress.lat;
+          cusLng = order.deliveryAddress.lng;
+          setCustomerLocation({ latitude: cusLat, longitude: cusLng });
         }
-        
+
         if (order.deliveries && order.deliveries.length > 0) {
           const d = order.deliveries[0];
           setDeliveryInfo({
@@ -83,12 +139,17 @@ export default function OrderTrackingScreen() {
             setRiderLocation({ latitude: d.tracking.latitude, longitude: d.tracking.longitude });
           }
         }
+
+        // Fetch real route polyline if we have both endpoints
+        if (resLat && resLng && cusLat && cusLng) {
+          void fetchRoute(resLat, resLng, cusLat, cusLng);
+        }
       } catch (e) {
         console.warn('Failed to fetch initial order details', e);
       }
     }
     void loadInitialData();
-  }, [orderId]);
+  }, [orderId, fetchRoute]);
 
   useEffect(() => {
     const unsubOrder = subscribeToOrderUpdates((update) => {
@@ -149,48 +210,56 @@ export default function OrderTrackingScreen() {
 
       {/* ── Background Map ───────────────────────────── */}
       <View style={styles.mapContainer}>
-         <MapView
-            style={StyleSheet.absoluteFillObject}
-            initialRegion={{
-              latitude: mapCenter.latitude,
-              longitude: mapCenter.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }}
-            region={{
-              latitude: mapCenter.latitude,
-              longitude: mapCenter.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            }}
-          >
-            {riderLocation && (
-              <Marker coordinate={riderLocation} title="Rider" description="Current location">
-                <View style={styles.markerCircle}><Text style={{ fontSize: 24 }}>🛵</Text></View>
-              </Marker>
-            )}
-            
-            {restaurantLocation && (
-              <Marker coordinate={restaurantLocation} title="Restaurant" description={restaurantName}>
-                <View style={[styles.markerCircle, { backgroundColor: colors.surfaceAlt }]}><Text style={{ fontSize: 24 }}>🍽️</Text></View>
-              </Marker>
-            )}
-            
-            {customerLocation && (
-              <Marker coordinate={customerLocation} title="You" description="Delivery Address">
-                <View style={[styles.markerCircle, { backgroundColor: colors.primaryTint }]}><Text style={{ fontSize: 24 }}>📍</Text></View>
-              </Marker>
-            )}
-            
-            {riderLocation && customerLocation && (
-              <Polyline 
-                coordinates={[riderLocation, customerLocation]}
-                strokeColor={colors.primary}
-                strokeWidth={4}
-                lineDashPattern={[10, 10]}
-              />
-            )}
-          </MapView>
+        <MapView
+          style={StyleSheet.absoluteFillObject}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={{
+            latitude: mapCenter.latitude,
+            longitude: mapCenter.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }}
+          region={{
+            latitude: mapCenter.latitude,
+            longitude: mapCenter.longitude,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          }}
+        >
+          {riderLocation && (
+            <Marker coordinate={riderLocation} title="Rider" description="Current location">
+              <View style={styles.markerCircle}><Text style={{ fontSize: 24 }}>🛵</Text></View>
+            </Marker>
+          )}
+
+          {restaurantLocation && (
+            <Marker coordinate={restaurantLocation} title="Restaurant" description={restaurantName}>
+              <View style={[styles.markerCircle, { backgroundColor: colors.surfaceAlt }]}><Text style={{ fontSize: 24 }}>🍽️</Text></View>
+            </Marker>
+          )}
+
+          {customerLocation && (
+            <Marker coordinate={customerLocation} title="You" description="Delivery Address">
+              <View style={[styles.markerCircle, { backgroundColor: colors.primaryTint }]}><Text style={{ fontSize: 24 }}>📍</Text></View>
+            </Marker>
+          )}
+
+          {/* Real route polyline from Directions API — falls back to straight line */}
+          {routeCoords.length > 1 ? (
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor={colors.primary}
+              strokeWidth={4}
+            />
+          ) : riderLocation && customerLocation ? (
+            <Polyline
+              coordinates={[riderLocation, customerLocation]}
+              strokeColor={colors.primary}
+              strokeWidth={4}
+              lineDashPattern={[10, 10]}
+            />
+          ) : null}
+        </MapView>
       </View>
 
       {/* ── Interactive Bottom Sheet ──────────────────── */}

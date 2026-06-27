@@ -91,20 +91,18 @@ export class RestaurantCustomerOrdersService {
 
     this.gateway.emitToRestaurant(restaurant.id, 'customer-order:updated', eventPayload);
     this.gateway.emitToOrder(orderId, 'order:status_updated', eventPayload);
+    
+    if (order.customerId) {
+      this.gateway.emitToCustomer(order.customerId, 'order:status_updated', eventPayload);
+    }
 
     return updated;
   }
 
   async accept(ownerId: string, orderId: string) {
-    const updated = await this.changeStatus(ownerId, orderId, OrderStatus.ACCEPTED, [OrderStatus.PLACED]);
-    
-    // Automatically trigger delivery assignment when accepted
-    try {
-      await this.deliveryService.assignDelivery(orderId);
-    } catch (error) {
-      console.error('Failed to assign delivery:', error);
-      // We don't fail the order acceptance if delivery assignment fails immediately
-    }
+    const updated = await this.changeStatus(ownerId, orderId, OrderStatus.ACCEPTED, [
+      OrderStatus.PLACED,
+    ]);
 
     return updated;
   }
@@ -148,8 +146,17 @@ export class RestaurantCustomerOrdersService {
     return this.changeStatus(ownerId, orderId, OrderStatus.PREPARING, [OrderStatus.ACCEPTED]);
   }
 
-  ready(ownerId: string, orderId: string) {
-    return this.changeStatus(ownerId, orderId, OrderStatus.READY, [OrderStatus.PREPARING]);
+  async ready(ownerId: string, orderId: string) {
+    const updated = await this.changeStatus(ownerId, orderId, OrderStatus.READY, [OrderStatus.PREPARING]);
+    
+    // Automatically trigger delivery assignment when food is ready
+    try {
+      await this.deliveryService.assignDelivery(orderId);
+    } catch (error) {
+      console.error('Failed to assign delivery:', error);
+    }
+    
+    return updated;
   }
 
   delivered(ownerId: string, orderId: string) {
