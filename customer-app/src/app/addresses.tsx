@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeScreen } from '../components/ui/SafeScreen';
@@ -34,14 +34,55 @@ export default function AddressesScreen() {
     }
   };
 
+  const handleDelete = (id: string) => {
+    Alert.alert('Delete Address', 'Are you sure you want to delete this address?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await customerApi.addresses.delete(id);
+            loadAddresses();
+          } catch (e) {
+            console.log('Delete failed', e);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleSetDefault = async (id: string) => {
+    try {
+      await customerApi.addresses.setDefault(id);
+      loadAddresses();
+    } catch (e) {
+      console.log('Set default failed', e);
+    }
+  };
+
   const renderAddress = ({ item }: { item: any }) => (
-    <View style={styles.addressCard}>
+    <View style={[styles.addressCard, item.isDefault && { borderColor: colors.primary, borderWidth: 2 }]}>
       <View style={styles.addressHeader}>
-        <MapPin color={colors.primary} size={20} />
-        <Text style={styles.addressType}>{item.addressType || 'Home'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <MapPin color={colors.primary} size={20} />
+          <Text style={styles.addressType}>{item.label || 'Home'}</Text>
+          {item.isDefault && <Text style={{ marginLeft: 8, color: colors.primary, fontSize: 12, fontWeight: 'bold' }}>DEFAULT</Text>}
+        </View>
       </View>
       <Text style={styles.addressLine}>{item.addressLine}</Text>
       <Text style={styles.addressCity}>{item.city}, {item.state} - {item.pincode}</Text>
+      
+      <View style={{ flexDirection: 'row', marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, gap: 16 }}>
+        {!item.isDefault && (
+          <TouchableOpacity onPress={() => handleSetDefault(item.id)}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>Set as Default</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => handleDelete(item.id)}>
+          <Text style={{ color: 'red', fontWeight: '600' }}>Delete</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 

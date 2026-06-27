@@ -30,7 +30,7 @@ export class RestaurantCustomerOrdersController {
   }
 
   @Patch(':id/accept')
-  @ApiOperation({ summary: 'Accept a PLACED customer order — automatically creates Shadowfax shipment' })
+  @ApiOperation({ summary: 'Accept a PLACED customer order' })
   accept(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.service.accept(user.id, id);
   }
@@ -54,7 +54,7 @@ export class RestaurantCustomerOrdersController {
   }
 
   @Patch(':id/ready')
-  @ApiOperation({ summary: 'Mark a PREPARING customer order as READY' })
+  @ApiOperation({ summary: 'Mark a PREPARING customer order as READY — automatically creates Shadowfax shipment' })
   ready(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.service.ready(user.id, id);
   }

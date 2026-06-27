@@ -26,6 +26,8 @@ export interface NormalizedDeliveryEvent {
 
 export interface ShipmentResponse {
   shipmentId: string;
+  trackingId?: string;
+  awbNumber?: string;
   eta?: Date;
   trackingUrl?: string;
   supportsLiveGps: boolean;

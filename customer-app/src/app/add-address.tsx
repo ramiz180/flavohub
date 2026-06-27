@@ -1,13 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors } from '../constants/Colors';
 import { type } from '../constants/Typography';
-import { customerApi } from '../lib/api';
+import { customerApi, apiClient } from '../lib/api';
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
@@ -15,10 +15,10 @@ export default function AddAddressScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
-  
+
   const [region, setRegion] = useState<Region>({
     latitude: 28.6139,
-    longitude: 77.2090,
+    longitude: 77.209,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
@@ -27,14 +27,42 @@ export default function AddAddressScreen() {
   const [city, setCity] = useState('');
   const [addressType, setAddressType] = useState('Home');
   const [saving, setSaving] = useState(false);
+  const [reverseGeocoding, setReverseGeocoding] = useState(false);
+
+  // Call the backend reverse-geocode endpoint when the user stops dragging the map
+  const reverseGeocode = useCallback(async (lat: number, lng: number) => {
+    try {
+      setReverseGeocoding(true);
+      const res = await apiClient.get<string>('/location/reverse-geocode', {
+        params: { lat, lng },
+      });
+      const address = res.data;
+      if (address) {
+        setAddressLine(address);
+        // Parse city from a comma-separated formatted address (e.g. "Street, Area, City, State, Country")
+        const parts = address.split(',');
+        const cityGuess = parts[parts.length - 3]?.trim() ?? parts[parts.length - 2]?.trim() ?? '';
+        if (cityGuess) setCity(cityGuess);
+      }
+    } catch {
+      // Silent — user can type manually
+    } finally {
+      setReverseGeocoding(false);
+    }
+  }, []);
 
   const handleSave = async () => {
-    if (!addressLine || !city) return;
+    const addressStr = addressLine.trim();
+    const cityStr = city.trim();
+    if (!addressStr || !cityStr || addressStr.toLowerCase() === 'locating...') {
+      return; // Do not save invalid addresses
+    }
+    
     try {
       setSaving(true);
       await customerApi.addresses.create({
-        address: addressLine,
-        city,
+        address: addressStr,
+        city: cityStr,
         state: 'Unknown',
         pincode: '000000',
         label: addressType,
@@ -51,18 +79,21 @@ export default function AddAddressScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Full-screen Google Map */}
       <MapView
         ref={mapRef}
         style={styles.map}
+        provider={PROVIDER_GOOGLE}
         initialRegion={region}
         onRegionChangeComplete={(newRegion) => {
           setRegion(newRegion);
-          // In a real app, reverse geocode the new region center here
+          void reverseGeocode(newRegion.latitude, newRegion.longitude);
         }}
       >
         <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} />
       </MapView>
 
+      {/* Top Search Bar */}
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <ArrowLeft color="#1f2937" size={24} />
@@ -83,9 +114,11 @@ export default function AddAddressScreen() {
                 setRegion(newRegion);
                 mapRef.current?.animateToRegion(newRegion, 500);
                 setAddressLine(details.formatted_address || data.description);
-                
-                // Extract city
-                const cityComponent = details.address_components?.find(c => c.types.includes('locality'));
+
+                // Extract city from Google's address_components
+                const cityComponent = details.address_components?.find((c) =>
+                  c.types.includes('locality'),
+                );
                 if (cityComponent) setCity(cityComponent.long_name);
               }
             }}
@@ -103,21 +136,30 @@ export default function AddAddressScreen() {
         </View>
       </View>
 
+      {/* Bottom Sheet */}
       <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 16 }]}>
         <Text style={styles.sheetTitle}>Delivery Details</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Complete Address"
-          value={addressLine}
-          onChangeText={setAddressLine}
-        />
+
+        {/* Address field with reverse-geocoding loader */}
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.input}
+            placeholder="Complete Address"
+            value={addressLine}
+            onChangeText={setAddressLine}
+          />
+          {reverseGeocoding && (
+            <ActivityIndicator style={styles.inputLoader} size="small" color={colors.primary} />
+          )}
+        </View>
+
         <TextInput
           style={styles.input}
           placeholder="City"
           value={city}
           onChangeText={setCity}
         />
-        
+
         <View style={styles.typeRow}>
           {['Home', 'Office', 'Other'].map((typeLabel) => (
             <TouchableOpacity
@@ -125,17 +167,23 @@ export default function AddAddressScreen() {
               style={[styles.typeBtn, addressType === typeLabel && styles.typeBtnActive]}
               onPress={() => setAddressType(typeLabel)}
             >
-              <Text style={[styles.typeText, addressType === typeLabel && styles.typeTextActive]}>{typeLabel}</Text>
+              <Text style={[styles.typeText, addressType === typeLabel && styles.typeTextActive]}>
+                {typeLabel}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity 
-          style={[styles.saveBtn, (!addressLine || !city) && styles.saveBtnDisabled]} 
+        <TouchableOpacity
+          style={[styles.saveBtn, (!addressLine || !city) && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={!addressLine || !city || saving}
         >
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Address</Text>}
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveBtnText}>Save Address</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -213,17 +261,26 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
+  inputWrapper: {
+    position: 'relative',
+    marginBottom: 12,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     padding: 14,
-    marginBottom: 12,
     ...type.body,
+  },
+  inputLoader: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
   },
   typeRow: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 12,
     marginBottom: 24,
   },
   typeBtn: {

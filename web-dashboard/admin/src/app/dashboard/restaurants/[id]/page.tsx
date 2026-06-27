@@ -1,14 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
 import AuthGuard from '@/components/auth-guard';
 import PasswordInput from '@/components/password-input';
 import ImageUploadWithCrop from '@/components/ImageUploadWithCrop';
-import type { MarkupType, RestaurantOwner, RestaurantWithHours } from '@/types/restaurant';
+import type { MarkupType, RestaurantOwner, RestaurantWithHours, UpdateRestaurantPayload } from '@/types/restaurant';
 
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -30,6 +30,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 function RestaurantDetailContent() {
   const { accessToken } = useAuth();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = typeof params['id'] === 'string' ? params['id'] : '';
 
   const [restaurant, setRestaurant] = useState<RestaurantWithHours | null>(null);
@@ -66,13 +67,24 @@ function RestaurantDetailContent() {
   // reset password state
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPassword, setResetPassword] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  const loadRestaurant = useCallback(() => {
+  // profile edit state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState<Partial<UpdateRestaurantPayload>>({});
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // location edit state
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationForm, setLocationForm] = useState<Partial<UpdateRestaurantPayload>>({});
+  const [locationSaving, setLocationSaving] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const loadRestaurant = useCallback((showSpinner = true) => {
     if (!accessToken || !id) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setFetchError(null);
     apiClient.restaurants
       .get(accessToken, id)
@@ -80,7 +92,9 @@ function RestaurantDetailContent() {
       .catch((err: unknown) => {
         setFetchError(err instanceof Error ? err.message : 'Failed to load restaurant');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
   }, [accessToken, id]);
 
   useEffect(() => {
@@ -94,28 +108,83 @@ function RestaurantDetailContent() {
     setOverrideValue(restaurant.markupValue ?? '');
     setAssignedOwner(restaurant.owner);
     setLogoUrl(restaurant.logoUrl ?? '');
-  }, [restaurant]);
+
+    if (searchParams.get('edit') === 'true' && !isEditingProfile) {
+      startEditingProfile(restaurant);
+    }
+  }, [restaurant, searchParams]);
 
   async function runAction(action: () => Promise<unknown>) {
     setActionLoading(true);
     setActionError(null);
     try {
       await action();
-      loadRestaurant();
+      loadRestaurant(false);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Action failed');
+      loadRestaurant(false); // revert optimistic update
     } finally {
       setActionLoading(false);
     }
   }
 
+  function startEditingProfile(r = restaurant) {
+    if (!r) return;
+    setProfileForm({
+      name: r.name,
+      cuisineType: r.cuisineType ?? '',
+      phone: r.phone,
+      email: r.email ?? '',
+      addressLine: r.addressLine,
+      city: r.city,
+      description: r.description ?? '',
+    });
+    setIsEditingProfile(true);
+  }
+
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await apiClient.restaurants.update(accessToken, id, profileForm);
+      setRestaurant(prev => prev ? { ...prev, ...profileForm } : prev);
+      setIsEditingProfile(false);
+      loadRestaurant(false);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function handleSaveLocation(e: React.FormEvent) {
+    e.preventDefault();
+    if (!accessToken) return;
+    setLocationSaving(true);
+    setLocationError(null);
+    try {
+      await apiClient.restaurants.update(accessToken, id, locationForm);
+      setRestaurant(prev => prev ? { ...prev, ...locationForm } : prev);
+      setIsEditingLocation(false);
+      loadRestaurant(false);
+    } catch (err) {
+      setLocationError(err instanceof Error ? err.message : 'Failed to save location');
+    } finally {
+      setLocationSaving(false);
+    }
+  }
+
   async function handleApprove() {
     if (!accessToken) return;
+    setRestaurant((prev) => prev ? { ...prev, status: 'APPROVED' } : prev);
     await runAction(() => apiClient.restaurants.approve(accessToken, id));
   }
 
   async function handleRejectConfirm() {
     if (!accessToken || !rejectReason.trim()) return;
+    setRestaurant((prev) => prev ? { ...prev, status: 'REJECTED', rejectionReason: rejectReason.trim() } : prev);
     await runAction(() => apiClient.restaurants.reject(accessToken, id, rejectReason.trim()));
     setShowRejectModal(false);
     setRejectReason('');
@@ -123,11 +192,13 @@ function RestaurantDetailContent() {
 
   async function handleActivate() {
     if (!accessToken) return;
+    setRestaurant((prev) => prev ? { ...prev, isActive: true } : prev);
     await runAction(() => apiClient.restaurants.activate(accessToken, id));
   }
 
   async function handleDeactivate() {
     if (!accessToken) return;
+    setRestaurant((prev) => prev ? { ...prev, isActive: false } : prev);
     await runAction(() => apiClient.restaurants.deactivate(accessToken, id));
   }
 
@@ -147,7 +218,7 @@ function RestaurantDetailContent() {
         markupType: overrideType,
         markupValue: val,
       });
-      loadRestaurant();
+      loadRestaurant(false);
       setMarkupSuccess(true);
       setTimeout(() => setMarkupSuccess(false), 3000);
     } catch (err) {
@@ -167,7 +238,7 @@ function RestaurantDetailContent() {
         markupType: null,
         markupValue: null,
       });
-      loadRestaurant();
+      loadRestaurant(false);
       setMarkupSuccess(true);
       setTimeout(() => setMarkupSuccess(false), 3000);
     } catch (err) {
@@ -226,7 +297,7 @@ function RestaurantDetailContent() {
     setLogoSuccess(false);
     try {
       await apiClient.restaurants.update(accessToken, id, { logoUrl: logoUrl || null });
-      loadRestaurant();
+      loadRestaurant(false);
       setLogoSuccess(true);
       setTimeout(() => setLogoSuccess(false), 3000);
     } catch (err) {
@@ -341,30 +412,127 @@ function RestaurantDetailContent() {
 
         <div className="space-y-6">
           <section className="rounded bg-white p-6 shadow">
-            <h2 className="mb-4 text-base font-semibold text-gray-800">Profile</h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              <Field label="Name" value={restaurant.name} />
-              <Field label="Cuisine Type" value={restaurant.cuisineType} />
-              <Field label="Phone" value={restaurant.phone} />
-              <Field label="Email" value={restaurant.email} />
-              <div className="col-span-2">
-                <Field label="Address" value={restaurant.addressLine} />
-              </div>
-              <Field label="City" value={restaurant.city} />
-              {restaurant.rejectionReason && (
-                <div className="col-span-2">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-red-500">
-                    Rejection Reason
-                  </dt>
-                  <dd className="mt-0.5 text-sm text-gray-900">{restaurant.rejectionReason}</dd>
-                </div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-800">Profile</h2>
+              {!isEditingProfile && (
+                <button
+                  onClick={() => startEditingProfile()}
+                  className="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Edit Profile
+                </button>
               )}
-              {restaurant.description && (
-                <div className="col-span-2">
-                  <Field label="Description" value={restaurant.description} />
+            </div>
+
+            {isEditingProfile ? (
+              <form onSubmit={(e) => void handleSaveProfile(e)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Name</label>
+                    <input
+                      required
+                      value={profileForm.name ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, name: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Cuisine Type</label>
+                    <input
+                      value={profileForm.cuisineType ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, cuisineType: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Phone</label>
+                    <input
+                      required
+                      value={profileForm.phone ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, phone: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Email</label>
+                    <input
+                      type="email"
+                      value={profileForm.email ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, email: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Address</label>
+                    <input
+                      required
+                      value={profileForm.addressLine ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, addressLine: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-gray-700">City</label>
+                    <input
+                      required
+                      value={profileForm.city ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, city: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Description</label>
+                    <textarea
+                      rows={2}
+                      value={profileForm.description ?? ''}
+                      onChange={(e) => setProfileForm(p => ({ ...p, description: e.target.value }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-              )}
-            </dl>
+                {profileError && <p className="text-sm text-red-600">{profileError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(false)}
+                    className="rounded border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                  >
+                    {profileSaving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                <Field label="Name" value={restaurant.name} />
+                <Field label="Cuisine Type" value={restaurant.cuisineType} />
+                <Field label="Phone" value={restaurant.phone} />
+                <Field label="Email" value={restaurant.email} />
+                <div className="col-span-2">
+                  <Field label="Address" value={restaurant.addressLine} />
+                </div>
+                <Field label="City" value={restaurant.city} />
+                {restaurant.rejectionReason && (
+                  <div className="col-span-2">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-red-500">
+                      Rejection Reason
+                    </dt>
+                    <dd className="mt-0.5 text-sm text-gray-900">{restaurant.rejectionReason}</dd>
+                  </div>
+                )}
+                {restaurant.description && (
+                  <div className="col-span-2">
+                    <Field label="Description" value={restaurant.description} />
+                  </div>
+                )}
+              </dl>
+            )}
 
             <div className="mt-6 border-t pt-4">
               <ImageUploadWithCrop
@@ -389,17 +557,81 @@ function RestaurantDetailContent() {
           </section>
 
           <section className="rounded bg-white p-6 shadow">
-            <h2 className="mb-4 text-base font-semibold text-gray-800">Location</h2>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              <Field
-                label="Latitude"
-                value={restaurant.latitude !== null ? String(restaurant.latitude) : null}
-              />
-              <Field
-                label="Longitude"
-                value={restaurant.longitude !== null ? String(restaurant.longitude) : null}
-              />
-            </dl>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-800">Location</h2>
+              {!isEditingLocation && (
+                <button
+                  onClick={() => {
+                    setLocationForm({
+                      latitude: restaurant.latitude ?? null,
+                      longitude: restaurant.longitude ?? null,
+                    });
+                    setIsEditingLocation(true);
+                  }}
+                  className="rounded border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Edit Location
+                </button>
+              )}
+            </div>
+            
+            {isEditingLocation ? (
+              <form onSubmit={(e) => void handleSaveLocation(e)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={locationForm.latitude ?? ''}
+                      onChange={(e) => setLocationForm(p => ({ ...p, latitude: parseFloat(e.target.value) }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={locationForm.longitude ?? ''}
+                      onChange={(e) => setLocationForm(p => ({ ...p, longitude: parseFloat(e.target.value) }))}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                {locationError && <p className="text-sm text-red-600">{locationError}</p>}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingLocation(false);
+                      setLocationForm({});
+                    }}
+                    className="rounded border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={locationSaving}
+                    className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                  >
+                    {locationSaving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+                <Field
+                  label="Latitude"
+                  value={restaurant.latitude !== null ? String(restaurant.latitude) : null}
+                />
+                <Field
+                  label="Longitude"
+                  value={restaurant.longitude !== null ? String(restaurant.longitude) : null}
+                />
+              </dl>
+            )}
           </section>
 
           {/* ── Markup Override ─────────────────────────────────────────── */}

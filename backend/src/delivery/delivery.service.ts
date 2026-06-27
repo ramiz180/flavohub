@@ -67,6 +67,8 @@ export class DeliveryService {
           orderId: order.id,
           partner: selectedPartner,
           shipmentId: response.shipmentId,
+          trackingId: response.trackingId,
+          awbNumber: response.awbNumber,
           status: DeliveryStatus.ASSIGNED,
           trackingUrl: response.trackingUrl,
           eta: response.eta,
@@ -160,6 +162,9 @@ export class DeliveryService {
     if (riderPhone) updateData.riderPhone = riderPhone;
     if (riderVehicle) updateData.riderVehicle = riderVehicle;
     if (eta) updateData.eta = eta;
+    if (latitude !== undefined) updateData.latitude = latitude;
+    if (longitude !== undefined) updateData.longitude = longitude;
+    if (latitude !== undefined || longitude !== undefined) updateData.lastSyncedAt = new Date();
 
     const updatedDelivery = await this.prisma.delivery.update({
       where: { id: delivery.id },
@@ -209,6 +214,9 @@ export class DeliveryService {
       };
       this.gateway.emitToRestaurant(delivery.customerOrder.restaurantId, 'customer-order:updated', eventPayload);
       this.gateway.emitToOrder(delivery.orderId, 'order:status_updated', eventPayload);
+      if (delivery.customerOrder.customerId) {
+        this.gateway.emitToCustomer(delivery.customerOrder.customerId, 'order:status_updated', eventPayload);
+      }
 
       // Notify restaurant + customer of COD payment received
       if (isCodDelivered) {

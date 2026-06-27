@@ -321,6 +321,12 @@ export default function AdminDeliveriesPage() {
                             
                             <div className="flex flex-col gap-0.5">
                               <span className="font-mono text-[11px] text-indigo-700/70">ID: {delivery.shipmentId || 'Awaiting SFX...'}</span>
+                              {delivery.awbNumber && (
+                                <span className="font-mono text-[11px] text-indigo-700/70">AWB: {delivery.awbNumber}</span>
+                              )}
+                              {delivery.trackingId && (
+                                <span className="font-mono text-[11px] text-indigo-700/70">TRK: {delivery.trackingId}</span>
+                              )}
                               <span className="text-sm font-semibold text-indigo-900 mt-1">
                                 {delivery.riderName ? delivery.riderName : 'Assigning Rider...'}
                               </span>

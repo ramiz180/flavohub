@@ -340,7 +340,6 @@ export class CustomerRestaurantService {
 
   async search(dto: SearchQueryDto): Promise<SearchResult> {
     const { q, latitude: lat, longitude: lng, radius = 50 } = dto;
-    const term = `%${q.trim().toLowerCase()}%`;
 
     // Search restaurants by name or cuisineType
     const restaurants = await this.prisma.restaurant.findMany({
@@ -349,7 +348,13 @@ export class CustomerRestaurantService {
         isActive: true,
         OR: [
           { name: { contains: q.trim(), mode: 'insensitive' } },
-          { cuisineType: { contains: q.trim(), mode: 'insensitive' } },
+          {
+            cuisineType: {
+              not: null,
+              contains: q.trim(),
+              mode: 'insensitive',
+            },
+          },
         ],
       },
       select: {

@@ -29,11 +29,13 @@ export class CreateCustomerAddressDto {
   @IsString()
   landmark?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Latitude – if omitted the backend will geocode the address' })
+  @IsOptional()
   @IsNumber()
-  latitude!: number;
+  latitude?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Longitude – if omitted the backend will geocode the address' })
+  @IsOptional()
   @IsNumber()
-  longitude!: number;
+  longitude?: number;
 }

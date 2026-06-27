@@ -33,9 +33,9 @@ export default function MenuPage() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editItemForm, setEditItemForm] = useState<ItemFormState>(EMPTY_ITEM);
 
-  const loadMenu = useCallback(async () => {
+  const loadMenu = useCallback(async (showSpinner = true) => {
     if (!accessToken) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setFetchError('');
     try {
       const data = await apiClient.menu.getFullMenu(accessToken);
@@ -43,7 +43,7 @@ export default function MenuPage() {
     } catch (e) {
       setFetchError(e instanceof Error ? e.message : 'Failed to load menu');
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }, [accessToken]);
 
@@ -65,7 +65,7 @@ export default function MenuPage() {
     try {
       await apiClient.menu.createCategory(accessToken, { name: newCatName.trim() });
       setNewCatName('');
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
     } finally {
@@ -82,12 +82,17 @@ export default function MenuPage() {
   async function handleRenameCategory(catId: string) {
     if (!accessToken || !renameCatName.trim()) return;
     setActionError('');
+    const newName = renameCatName.trim();
+    
+    setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, name: newName } : c)));
+    setRenamingCatId(null);
+    
     try {
-      await apiClient.menu.updateCategory(accessToken, catId, { name: renameCatName.trim() });
-      setRenamingCatId(null);
-      await loadMenu();
+      await apiClient.menu.updateCategory(accessToken, catId, { name: newName });
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
@@ -95,11 +100,15 @@ export default function MenuPage() {
     if (!window.confirm(`Delete category "${catName}" and all its items?`)) return;
     if (!accessToken) return;
     setActionError('');
+
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
+
     try {
       await apiClient.menu.deleteCategory(accessToken, catId);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
@@ -125,7 +134,7 @@ export default function MenuPage() {
       });
       setAddingItemCatId(null);
       setNewItemForm(EMPTY_ITEM);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
     }
@@ -146,6 +155,25 @@ export default function MenuPage() {
     e.preventDefault();
     if (!accessToken) return;
     setActionError('');
+
+    setCategories((prev) =>
+      prev.map((cat) => ({
+        ...cat,
+        items: cat.items.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                name: editItemForm.name?.trim() || i.name,
+                description: editItemForm.description?.trim() || i.description,
+                price: editItemForm.price?.trim() || i.price,
+                imageUrl: editItemForm.imageUrl?.trim() || i.imageUrl,
+              }
+            : i,
+        ),
+      })),
+    );
+    setEditingItemId(null);
+
     try {
       await apiClient.menu.updateItem(accessToken, itemId, {
         name: editItemForm.name?.trim() || '',
@@ -153,10 +181,10 @@ export default function MenuPage() {
         price: editItemForm.price?.trim() || '',
         imageUrl: editItemForm.imageUrl?.trim() || undefined,
       });
-      setEditingItemId(null);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
@@ -164,11 +192,20 @@ export default function MenuPage() {
     if (!window.confirm(`Delete item "${itemName}"?`)) return;
     if (!accessToken) return;
     setActionError('');
+
+    setCategories((prev) =>
+      prev.map((cat) => ({
+        ...cat,
+        items: cat.items.filter((i) => i.id !== itemId),
+      })),
+    );
+
     try {
       await apiClient.menu.deleteItem(accessToken, itemId);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
