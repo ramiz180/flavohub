@@ -15,11 +15,15 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeScreen } from '../components/ui/SafeScreen';
-import { placeOrder, createPaymentOrder, verifyPayment } from '../lib/api';
+import { StickyActionBar, ActionButton } from '../components/ui/StickyActionBar';
+import { placeOrder, createPaymentOrder, verifyPayment, customerApi, getCart, Cart } from '../lib/api';
+import { useAuthStore } from '../lib/store/auth.store';
 import { colors, cardShadow } from '../constants/Colors';
 import { type } from '../constants/Typography';
 import { space, radius } from '../constants/Spacing';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type PaymentMethod = 'upi' | 'card' | 'cod';
 
@@ -51,26 +55,86 @@ const PAYMENT_OPTIONS: {
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { customer } = useAuthStore();
   const { total, couponCode, couponDiscount } = useLocalSearchParams<{
     total: string;
     couponCode: string;
     couponDiscount: string;
   }>();
 
-  const [address, setAddress] = useState('');
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [note, setNote] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [loading, setLoading] = useState(false);
+  const [cart, setCart] = useState<Cart | null>(null);
+
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const [addrRes, cartData] = await Promise.all([
+          customerApi.addresses.list(),
+          getCart(),
+        ]);
+        const adrs = addrRes.data.data;
+        
+        // Filter and deduplicate
+        const validAdrs = adrs.filter((a: any) => a.lat != null && a.lng != null && a.addressLine && a.addressLine.toLowerCase() !== 'locating...');
+        const uniqueAdrs = [];
+        const seen = new Set();
+        for (const a of validAdrs) {
+          const key = `${a.label}-${a.lat}-${a.lng}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueAdrs.push(a);
+          }
+        }
+        
+        setAddresses(uniqueAdrs);
+        if (uniqueAdrs.length > 0) {
+          setSelectedAddressId(uniqueAdrs[0].id);
+        }
+        setCart(cartData);
+      } catch (err) {}
+    };
+    load();
+  }, []);
 
   const handlePlaceOrder = async () => {
-    if (!address.trim()) {
-      Alert.alert('Address required', 'Please enter your delivery address');
+    if (!selectedAddressId) {
+      Alert.alert('Address required', 'Please select a delivery address');
+      return;
+    }
+    if (!cart || !cart.restaurantId) {
+      Alert.alert('Cart error', 'Your cart is empty or invalid.');
       return;
     }
 
     setLoading(true);
     try {
-      const order = await placeOrder(address.trim(), note.trim() || undefined);
+      const finalAddressId = selectedAddressId;
+
+      const subtotal = cart.items.reduce((sum, i) => sum + parseFloat(i.menuItem.price) * i.quantity, 0);
+      const discount = parseInt(couponDiscount ?? '0', 10) || 0;
+      const taxes = (subtotal * 5) / 100;
+      const deliveryFee = 40; // Default or from api
+      const finalTotal = subtotal + taxes + deliveryFee - discount;
+
+      const payload = {
+        customerId: customer?.id ?? '',
+        restaurantId: cart.restaurantId,
+        addressId: finalAddressId,
+        items: cart.items.map(i => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+        paymentMethod: paymentMethod === 'cod' ? 'COD' : 'ONLINE',
+        subtotal,
+        deliveryFee,
+        taxes,
+        total: parseFloat(total) || finalTotal,
+        note: note.trim() || undefined,
+      };
+
+      const order = await placeOrder(payload);
 
       if (paymentMethod === 'cod') {
         router.replace({
@@ -185,114 +249,133 @@ export default function CheckoutScreen() {
   };
 
   return (
-    <SafeScreen>
+    <SafeScreen edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Nav bar */}
         <View style={styles.navBar}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backBtnWrapper} onPress={() => router.back()}>
             <Text style={styles.backBtn}>←</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle}>Checkout</Text>
-          <View style={{ width: 32 }} />
+          <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          {/* Delivery address */}
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 140 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+          {/* Delivery Details */}
+          <Text style={styles.sectionHeading}>Delivery Details</Text>
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Delivery Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full delivery address"
-              placeholderTextColor={colors.muted}
-              value={address}
-              onChangeText={setAddress}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Delivery note */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Delivery Note (optional)</Text>
-            <TextInput
-              style={[styles.input, { height: 60 }]}
-              placeholder="E.g. Leave at door, ring bell twice..."
-              placeholderTextColor={colors.muted}
-              value={note}
-              onChangeText={setNote}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Payment method */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Payment Method</Text>
-            {PAYMENT_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.paymentOption,
-                  paymentMethod === option.id && styles.paymentOptionSelected,
-                ]}
-                onPress={() => setPaymentMethod(option.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.paymentIcon}>{option.icon}</Text>
-                <View style={styles.paymentInfo}>
-                  <Text style={styles.paymentLabel}>{option.label}</Text>
-                  <Text style={styles.paymentDesc}>{option.description}</Text>
+            {addresses.length > 0 ? (
+              <View style={styles.inputGroup}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.xs }}>
+                  <Text style={[styles.inputLabel, { marginBottom: 0 }]}>Select Address</Text>
+                  <TouchableOpacity onPress={() => router.push('/add-address')}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>+ Add New</Text>
+                  </TouchableOpacity>
                 </View>
-                <View
+                {addresses.map((addr) => (
+                  <TouchableOpacity
+                    key={addr.id}
+                    style={[
+                      styles.addressOption,
+                      selectedAddressId === addr.id && styles.addressOptionSelected
+                    ]}
+                    onPress={() => setSelectedAddressId(addr.id)}
+                  >
+                    <Text style={styles.addressLabel}>{addr.label || 'Home'}</Text>
+                    <Text style={styles.addressLine}>{addr.addressLine}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={[styles.inputGroup, { alignItems: 'center', paddingVertical: space.xl }]}>
+                <Text style={{ color: colors.muted, marginBottom: space.md }}>No saved addresses found.</Text>
+                <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/add-address')}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add New Address</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+               <Text style={styles.inputLabel}>Delivery Instructions (Optional)</Text>
+               <TextInput
+                 style={[styles.input, { height: 60 }]}
+                 placeholder="E.g. Leave at door, ring bell twice..."
+                 placeholderTextColor={colors.muted}
+                 value={note}
+                 onChangeText={setNote}
+                 multiline
+                 textAlignVertical="top"
+               />
+            </View>
+          </View>
+
+          {/* Payment Method */}
+          <Text style={styles.sectionHeading}>Payment Method</Text>
+          <View style={styles.card}>
+            {PAYMENT_OPTIONS.map((option, index) => {
+              const isSelected = paymentMethod === option.id;
+              const isLast = index === PAYMENT_OPTIONS.length - 1;
+              return (
+                <TouchableOpacity
+                  key={option.id}
                   style={[
-                    styles.radioOuter,
-                    paymentMethod === option.id && styles.radioOuterSelected,
+                    styles.paymentOption,
+                    isSelected && styles.paymentOptionSelected,
+                    !isLast && { marginBottom: space.sm }
                   ]}
+                  onPress={() => setPaymentMethod(option.id)}
+                  activeOpacity={0.8}
                 >
-                  {paymentMethod === option.id && <View style={styles.radioInner} />}
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <View style={[styles.paymentIconWrapper, isSelected && { backgroundColor: '#FFF' }]}>
+                     <Text style={styles.paymentIcon}>{option.icon}</Text>
+                  </View>
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>{option.label}</Text>
+                    <Text style={styles.paymentDesc}>{option.description}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      isSelected && styles.radioOuterSelected,
+                    ]}
+                  >
+                    {isSelected && <View style={styles.radioInner} />}
+                  </View>
+                </TouchableOpacity>
+              )
+            })}
           </View>
 
-          {/* Order total */}
-          <View style={styles.card}>
+          {/* Total & Secure */}
+          <View style={[styles.card, styles.totalCard]}>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total to pay</Text>
+              <Text style={styles.totalLabel}>Amount to pay</Text>
               <Text style={styles.totalAmount}>₹{total}</Text>
             </View>
             {couponCode && parseInt(couponDiscount ?? '0', 10) > 0 && (
-              <Text style={styles.couponSaved}>
-                🏷️ {couponCode} applied — you saved ₹{couponDiscount}
-              </Text>
+              <View style={styles.couponBadge}>
+                <Text style={styles.couponSaved}>
+                  ✨ '{couponCode}' applied — saved ₹{couponDiscount}
+                </Text>
+              </View>
             )}
             <View style={styles.secureRow}>
-              <Text style={styles.secureText}>🔒 100% secure payment</Text>
+              <Text style={styles.secureText}>🔒 100% secure encrypted payment</Text>
             </View>
           </View>
         </ScrollView>
 
-        {/* Place order CTA */}
-        <View style={styles.ctaBar}>
-          <TouchableOpacity
-            style={[styles.placeBtn, loading && { opacity: 0.7 }]}
+        {/* CTA Bar */}
+        <StickyActionBar>
+          <ActionButton
+            label={paymentMethod === 'cod' ? `Confirm Cash Order • ₹${total}` : `Proceed to Pay • ₹${total}`}
             onPress={handlePlaceOrder}
+            loading={loading}
             disabled={loading}
-            activeOpacity={0.9}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.surface} />
-            ) : (
-              <Text style={styles.placeBtnText}>
-                {paymentMethod === 'cod' ? `Place Order · ₹${total}` : `Pay ₹${total}`}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          />
+        </StickyActionBar>
       </KeyboardAvoidingView>
     </SafeScreen>
   );
@@ -305,67 +388,125 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
+    backgroundColor: colors.surfaceAlt,
+  },
+  backBtnWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderColor: colors.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
   },
   backBtn: {
     fontSize: 22,
     color: colors.ink,
-    width: 32,
+    marginTop: -2,
   },
   navTitle: {
-    ...type.title,
+    ...type.h2,
     color: colors.ink,
   },
   content: {
     padding: space.lg,
-    paddingBottom: 120,
+    paddingBottom: 140,
     backgroundColor: colors.surfaceAlt,
-    gap: space.md,
+  },
+  sectionHeading: {
+    ...type.h2,
+    fontSize: 18,
+    color: colors.ink,
+    marginBottom: space.sm,
+    marginTop: space.md,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: space.lg,
     ...cardShadow,
   },
-  sectionTitle: {
-    ...type.title,
-    color: colors.ink,
-    marginBottom: space.md,
+  totalCard: {
+    marginTop: space.xl,
+    backgroundColor: colors.ink,
+  },
+  inputGroup: {
+    marginBottom: space.lg,
+  },
+  inputLabel: {
+    ...type.caption,
+    color: colors.muted,
+    marginBottom: space.xs,
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: space.md,
     ...type.body,
     color: colors.ink,
     minHeight: 80,
+    backgroundColor: colors.surfaceAlt,
+  },
+  addBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+  },
+  addressOption: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: space.md,
+    marginBottom: space.sm,
+  },
+  addressOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
+  },
+  addressLabel: {
+    ...type.h3,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  addressLine: {
+    ...type.caption,
+    color: colors.muted,
+    marginTop: 2,
   },
   paymentOption: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: space.md,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: space.sm,
+    backgroundColor: colors.surface,
   },
   paymentOptionSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryTint,
   },
+  paymentIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: space.md,
+  },
   paymentIcon: {
-    fontSize: 24,
-    width: 36,
+    fontSize: 20,
   },
   paymentInfo: {
     flex: 1,
   },
   paymentLabel: {
-    ...type.bodyMedium,
+    ...type.h3,
+    fontSize: 15,
     color: colors.ink,
   },
   paymentDesc: {
@@ -374,9 +515,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     borderColor: colors.border,
     alignItems: 'center',
@@ -397,46 +538,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalLabel: {
-    ...type.title,
-    color: colors.ink,
+    ...type.h3,
+    color: '#FFF',
   },
   totalAmount: {
     ...type.h2,
-    color: colors.primary,
+    color: '#FFF',
+  },
+  couponBadge: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: space.sm,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+    marginTop: space.sm,
   },
   couponSaved: {
     ...type.caption,
-    color: colors.secondary,
-    marginTop: space.sm,
+    color: '#FFF',
   },
   secureRow: {
-    marginTop: space.sm,
+    marginTop: space.lg,
+    alignItems: 'center',
   },
   secureText: {
     ...type.caption,
-    color: colors.muted,
-  },
-  ctaBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surface,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    paddingBottom: space.xl,
-    borderTopWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  placeBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeBtnText: {
-    ...type.button,
-    color: colors.surface,
+    color: 'rgba(255,255,255,0.5)',
   },
 });

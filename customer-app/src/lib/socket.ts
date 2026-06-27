@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secure-storage';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 
@@ -72,3 +72,86 @@ export interface OrderStatusUpdate {
   restaurantName: string;
   updatedAt: string;
 }
+
+export interface DeliveryStatusUpdate {
+  id: string;
+  orderId: string;
+  partner: string;
+  status: string;
+  riderName: string | null;
+  riderPhone: string | null;
+  eta: string | null;
+}
+
+export interface DeliveryLocationUpdate {
+  deliveryId: string;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
+}
+
+export const subscribeToDeliveryStatus = (
+  callback: (data: DeliveryStatusUpdate) => void,
+): (() => void) => {
+  let cancelled = false;
+
+  connectSocket().then((s) => {
+    if (!cancelled) {
+      s.on('delivery:status_updated', callback);
+      s.on('delivery:assigned', callback);
+    }
+  });
+
+  return () => {
+    cancelled = true;
+    if (socket) {
+      socket.off('delivery:status_updated', callback);
+      socket.off('delivery:assigned', callback);
+    }
+  };
+};
+
+export const subscribeToDeliveryLocation = (
+  callback: (data: DeliveryLocationUpdate) => void,
+): (() => void) => {
+  let cancelled = false;
+
+  connectSocket().then((s) => {
+    if (!cancelled) {
+      s.on('delivery:location_updated', callback);
+    }
+  });
+
+  return () => {
+    cancelled = true;
+    if (socket) {
+      socket.off('delivery:location_updated', callback);
+    }
+  };
+};
+
+export interface PaymentStatusUpdate {
+  orderId: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  updatedAt: string;
+}
+
+export const subscribeToPaymentStatus = (
+  callback: (data: PaymentStatusUpdate) => void,
+): (() => void) => {
+  let cancelled = false;
+
+  connectSocket().then((s) => {
+    if (!cancelled) {
+      s.on('payment:status_updated', callback);
+    }
+  });
+
+  return () => {
+    cancelled = true;
+    if (socket) {
+      socket.off('payment:status_updated', callback);
+    }
+  };
+};

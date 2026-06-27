@@ -8,10 +8,15 @@
   },
   "dependencies": {
     "@flavohub/shared": "workspace:*",
+    "@react-google-maps/api": "^2.20.8",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.40.0",
+    "lucide-react": "^1.18.0",
     "next": "15",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-easy-crop": "^5.5.7"
+    "react-easy-crop": "^5.5.7",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@flavohub/config": "workspace:*",

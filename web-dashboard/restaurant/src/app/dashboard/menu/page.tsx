@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import AuthGuard from '@/components/auth-guard';
 import ImageUploadWithCrop from '@/components/ImageUploadWithCrop';
 import { useAuth } from '@/lib/auth-context';
 import { apiClient } from '@/lib/api-client';
@@ -34,9 +33,9 @@ export default function MenuPage() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editItemForm, setEditItemForm] = useState<ItemFormState>(EMPTY_ITEM);
 
-  const loadMenu = useCallback(async () => {
+  const loadMenu = useCallback(async (showSpinner = true) => {
     if (!accessToken) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setFetchError('');
     try {
       const data = await apiClient.menu.getFullMenu(accessToken);
@@ -44,7 +43,7 @@ export default function MenuPage() {
     } catch (e) {
       setFetchError(e instanceof Error ? e.message : 'Failed to load menu');
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }, [accessToken]);
 
@@ -56,7 +55,7 @@ export default function MenuPage() {
     setActionError(e instanceof Error ? e.message : 'Action failed');
   }
 
-  // ── Categories ──────────────────────────────────────────────────────────────
+  // â”€â”€ Categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   async function handleAddCategory(e: React.FormEvent) {
     e.preventDefault();
@@ -66,7 +65,7 @@ export default function MenuPage() {
     try {
       await apiClient.menu.createCategory(accessToken, { name: newCatName.trim() });
       setNewCatName('');
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
     } finally {
@@ -83,12 +82,17 @@ export default function MenuPage() {
   async function handleRenameCategory(catId: string) {
     if (!accessToken || !renameCatName.trim()) return;
     setActionError('');
+    const newName = renameCatName.trim();
+    
+    setCategories((prev) => prev.map((c) => (c.id === catId ? { ...c, name: newName } : c)));
+    setRenamingCatId(null);
+    
     try {
-      await apiClient.menu.updateCategory(accessToken, catId, { name: renameCatName.trim() });
-      setRenamingCatId(null);
-      await loadMenu();
+      await apiClient.menu.updateCategory(accessToken, catId, { name: newName });
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
@@ -96,15 +100,19 @@ export default function MenuPage() {
     if (!window.confirm(`Delete category "${catName}" and all its items?`)) return;
     if (!accessToken) return;
     setActionError('');
+
+    setCategories((prev) => prev.filter((c) => c.id !== catId));
+
     try {
       await apiClient.menu.deleteCategory(accessToken, catId);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
-  // ── Items ────────────────────────────────────────────────────────────────────
+  // â”€â”€ Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   function openAddItem(catId: string) {
     setAddingItemCatId(catId);
@@ -119,14 +127,14 @@ export default function MenuPage() {
     try {
       await apiClient.menu.createItem(accessToken, {
         categoryId: catId,
-        name: newItemForm.name.trim(),
-        ...(newItemForm.description.trim() && { description: newItemForm.description.trim() }),
-        price: newItemForm.price.trim(),
-        ...(newItemForm.imageUrl.trim() && { imageUrl: newItemForm.imageUrl.trim() }),
+        name: newItemForm.name?.trim() || '',
+        ...(newItemForm.description?.trim() && { description: newItemForm.description.trim() }),
+        price: newItemForm.price?.trim() || '',
+        ...(newItemForm.imageUrl?.trim() && { imageUrl: newItemForm.imageUrl.trim() }),
       });
       setAddingItemCatId(null);
       setNewItemForm(EMPTY_ITEM);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
     }
@@ -147,17 +155,36 @@ export default function MenuPage() {
     e.preventDefault();
     if (!accessToken) return;
     setActionError('');
+
+    setCategories((prev) =>
+      prev.map((cat) => ({
+        ...cat,
+        items: cat.items.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                name: editItemForm.name?.trim() || i.name,
+                description: editItemForm.description?.trim() || i.description,
+                price: editItemForm.price?.trim() || i.price,
+                imageUrl: editItemForm.imageUrl?.trim() || i.imageUrl,
+              }
+            : i,
+        ),
+      })),
+    );
+    setEditingItemId(null);
+
     try {
       await apiClient.menu.updateItem(accessToken, itemId, {
-        name: editItemForm.name.trim(),
-        description: editItemForm.description.trim() || undefined,
-        price: editItemForm.price.trim(),
-        imageUrl: editItemForm.imageUrl.trim() || undefined,
+        name: editItemForm.name?.trim() || '',
+        description: editItemForm.description?.trim() || undefined,
+        price: editItemForm.price?.trim() || '',
+        imageUrl: editItemForm.imageUrl?.trim() || undefined,
       });
-      setEditingItemId(null);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
@@ -165,11 +192,20 @@ export default function MenuPage() {
     if (!window.confirm(`Delete item "${itemName}"?`)) return;
     if (!accessToken) return;
     setActionError('');
+
+    setCategories((prev) =>
+      prev.map((cat) => ({
+        ...cat,
+        items: cat.items.filter((i) => i.id !== itemId),
+      })),
+    );
+
     try {
       await apiClient.menu.deleteItem(accessToken, itemId);
-      await loadMenu();
+      void loadMenu(false);
     } catch (e) {
       setError(e);
+      void loadMenu(false);
     }
   }
 
@@ -199,258 +235,263 @@ export default function MenuPage() {
     }
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
-    <AuthGuard>
-      <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-gray-900">Menu</h1>
+    <div className="space-y-6">
+      <h2 className="text-xl font-bold text-slate-900">Menu</h2>
 
-        {/* Add category */}
-        <form onSubmit={(e) => void handleAddCategory(e)} className="flex gap-2">
-          <input
-            value={newCatName}
-            onChange={(e) => setNewCatName(e.target.value)}
-            placeholder="New category name"
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-          <button
-            type="submit"
-            disabled={addingCat || !newCatName.trim()}
-            className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
-          >
-            {addingCat ? 'Adding…' : '+ Add Category'}
-          </button>
-        </form>
+      {/* Add category */}
+      <form onSubmit={(e) => void handleAddCategory(e)} className="flex flex-col sm:flex-row gap-3">
+        <input
+          value={newCatName}
+          onChange={(e) => setNewCatName(e.target.value)}
+          placeholder="New category name"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:py-2 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+        />
+        <button
+          type="submit"
+          disabled={addingCat || !newCatName.trim()}
+          className="w-full sm:w-auto shrink-0 rounded-xl bg-emerald-600 px-5 py-3 sm:py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+        >
+          {addingCat ? 'Adding…' : '+ Add Category'}
+        </button>
+      </form>
 
-        {actionError && (
-          <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {actionError}
-          </div>
-        )}
+      {actionError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
-        {loading && <p className="text-sm text-gray-500">Loading menu…</p>}
+      {loading && (
+        <div className="flex items-center justify-center py-10">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+        </div>
+      )}
 
-        {fetchError && (
-          <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {fetchError}
-          </div>
-        )}
+      {fetchError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {fetchError}
+        </div>
+      )}
 
-        {!loading && !fetchError && categories.length === 0 && (
-          <p className="text-sm text-gray-500">No categories yet. Add one above.</p>
-        )}
+      {!loading && !fetchError && categories.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+          <p className="text-sm text-slate-500">No categories yet. Add one above.</p>
+        </div>
+      )}
 
-        {/* Category sections */}
-        {categories.map((cat) => (
-          <div key={cat.id} className="rounded bg-white p-5 shadow">
-            {/* Category header */}
-            {renamingCatId === cat.id ? (
-              <div className="mb-4 flex items-center gap-2">
-                <input
-                  value={renameCatName}
-                  onChange={(e) => setRenameCatName(e.target.value)}
-                  autoFocus
-                  className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+      {/* Category sections */}
+      {categories.map((cat) => (
+        <div key={cat.id} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          {/* Category header */}
+          {renamingCatId === cat.id ? (
+            <div className="mb-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                value={renameCatName}
+                onChange={(e) => setRenameCatName(e.target.value)}
+                autoFocus
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              />
+              <div className="flex gap-2">
                 <button
                   onClick={() => void handleRenameCategory(cat.id)}
-                  className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
                   Save
                 </button>
                 <button
                   onClick={() => setRenamingCatId(null)}
-                  className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+                  className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
               </div>
-            ) : (
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-semibold text-gray-900">{cat.name}</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => startRenameCategory(cat.id, cat.name)}
-                    className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    onClick={() => void handleDeleteCategory(cat.id, cat.name)}
-                    className="rounded border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Items */}
-            {cat.items.length === 0 && <p className="mb-3 text-sm text-gray-400">No items yet.</p>}
-            <div className="space-y-2">
-              {cat.items.map((item) =>
-                editingItemId === item.id ? (
-                  <form
-                    key={item.id}
-                    onSubmit={(e) => void handleEditItem(e, item.id)}
-                    className="space-y-2 rounded border border-emerald-200 bg-emerald-50 p-3"
-                  >
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        value={editItemForm.name}
-                        onChange={(e) => setEditItemForm((f) => ({ ...f, name: e.target.value }))}
-                        placeholder="Name"
-                        required
-                        className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <input
-                        value={editItemForm.price}
-                        onChange={(e) => setEditItemForm((f) => ({ ...f, price: e.target.value }))}
-                        placeholder="Price (e.g. 9.99)"
-                        required
-                        className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <input
-                        value={editItemForm.description}
-                        onChange={(e) =>
-                          setEditItemForm((f) => ({ ...f, description: e.target.value }))
-                        }
-                        placeholder="Description (optional)"
-                        className="col-span-2 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                      <div className="col-span-2">
-                        <ImageUploadWithCrop
-                          initialUrl={editItemForm.imageUrl}
-                          onUploadComplete={(url) =>
-                            setEditItemForm((f) => ({ ...f, imageUrl: url }))
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingItemId(null)}
-                        className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded border border-gray-100 px-3 py-2 hover:bg-gray-50"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="text-sm font-medium text-gray-800">{item.name}</span>
-                      <span className="text-sm text-gray-500">₹{item.price}</span>
-                      {item.description && (
-                        <span className="hidden truncate text-xs text-gray-400 sm:block">
-                          {item.description}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => void handleToggleAvailability(item)}
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
-                          item.isAvailable
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {item.isAvailable ? 'Available' : 'Unavailable'}
-                      </button>
-                    </div>
-                    <div className="ml-3 flex shrink-0 gap-2">
-                      <button
-                        onClick={() => startEditItem(item)}
-                        className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => void handleDeleteItem(item.id, item.name)}
-                        className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ),
-              )}
             </div>
+          ) : (
+            <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-slate-800">{cat.name}</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => startRenameCategory(cat.id, cat.name)}
+                  className="flex-1 sm:flex-none rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Rename
+                </button>
+                <button
+                  onClick={() => void handleDeleteCategory(cat.id, cat.name)}
+                  className="flex-1 sm:flex-none rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
 
-            {/* Add item */}
-            {addingItemCatId === cat.id ? (
-              <form
-                onSubmit={(e) => void handleAddItem(e, cat.id)}
-                className="mt-3 space-y-2 rounded border border-dashed border-emerald-300 bg-emerald-50 p-3"
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    value={newItemForm.name}
-                    onChange={(e) => setNewItemForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="Name"
-                    required
-                    autoFocus
-                    className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <input
-                    value={newItemForm.price}
-                    onChange={(e) => setNewItemForm((f) => ({ ...f, price: e.target.value }))}
-                    placeholder="Price (e.g. 9.99)"
-                    required
-                    className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <input
-                    value={newItemForm.description}
-                    onChange={(e) => setNewItemForm((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Description (optional)"
-                    className="col-span-2 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <div className="col-span-2">
-                    <ImageUploadWithCrop
-                      onUploadComplete={(url) => setNewItemForm((f) => ({ ...f, imageUrl: url }))}
+          {/* Items */}
+          {cat.items.length === 0 && <p className="mb-3 text-sm text-slate-400">No items yet.</p>}
+          <div className="space-y-2">
+            {cat.items.map((item) =>
+              editingItemId === item.id ? (
+                <form
+                  key={item.id}
+                  onSubmit={(e) => void handleEditItem(e, item.id)}
+                  className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      value={editItemForm.name}
+                      onChange={(e) => setEditItemForm((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Name"
+                      required
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
                     />
+                    <input
+                      value={editItemForm.price}
+                      onChange={(e) => setEditItemForm((f) => ({ ...f, price: e.target.value }))}
+                      placeholder="Price (e.g. 9.99)"
+                      required
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+                    />
+                    <input
+                      value={editItemForm.description}
+                      onChange={(e) => setEditItemForm((f) => ({ ...f, description: e.target.value }))}
+                      placeholder="Description (optional)"
+                      className="w-full sm:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+                    />
+                    <div className="sm:col-span-2 w-max">
+                      <ImageUploadWithCrop
+                        initialUrl={editItemForm.imageUrl}
+                        onUploadComplete={(url) => setEditItemForm((f) => ({ ...f, imageUrl: url }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                    <button
+                      type="submit"
+                      className="w-full sm:w-auto rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingItemId(null)}
+                      className="w-full sm:w-auto rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div
+                  key={item.id}
+                  className="flex flex-col md:flex-row md:items-center justify-between rounded-2xl border border-slate-100 p-4 transition-colors hover:bg-slate-50 gap-4"
+                >
+                  <div className="flex min-w-0 flex-col md:flex-row md:items-center gap-2 md:gap-4 flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-base font-bold text-slate-800">{item.name}</span>
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-bold text-emerald-700">&#8377;{item.price}</span>
+                    </div>
+                    {item.description && (
+                      <p className="truncate text-sm text-slate-500">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 shrink-0">
+                    <button
+                      onClick={() => void handleToggleAvailability(item)}
+                      className={`flex-1 md:flex-none rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
+                        item.isAvailable
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      }`}
+                    >
+                      {item.isAvailable ? 'Available' : 'Unavailable'}
+                    </button>
+                    <button
+                      onClick={() => startEditItem(item)}
+                      className="flex-1 md:flex-none rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => void handleDeleteItem(item.id, item.name)}
+                      className="flex-1 md:flex-none rounded-xl border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                  >
-                    Add Item
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddingItemCatId(null);
-                      setNewItemForm(EMPTY_ITEM);
-                    }}
-                    className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button
-                onClick={() => openAddItem(cat.id)}
-                className="mt-3 text-sm text-emerald-600 hover:text-emerald-700"
-              >
-                + Add item
-              </button>
+              ),
             )}
           </div>
-        ))}
-      </div>
-    </AuthGuard>
+
+          {/* Add item */}
+          {addingItemCatId === cat.id ? (
+            <form
+              onSubmit={(e) => void handleAddItem(e, cat.id)}
+              className="mt-3 space-y-2 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 p-3"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  value={newItemForm.name}
+                  onChange={(e) => setNewItemForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Name"
+                  required
+                  autoFocus
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+                />
+                <input
+                  value={newItemForm.price}
+                  onChange={(e) => setNewItemForm((f) => ({ ...f, price: e.target.value }))}
+                  placeholder="Price (e.g. 9.99)"
+                  required
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+                />
+                <input
+                  value={newItemForm.description}
+                  onChange={(e) => setNewItemForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Description (optional)"
+                  className="w-full sm:col-span-2 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
+                />
+                <div className="sm:col-span-2 w-max">
+                  <ImageUploadWithCrop
+                    onUploadComplete={(url) => setNewItemForm((f) => ({ ...f, imageUrl: url }))}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Add Item
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingItemCatId(null);
+                    setNewItemForm(EMPTY_ITEM);
+                  }}
+                  className="w-full sm:w-auto rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => openAddItem(cat.id)}
+              className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              + Add item
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

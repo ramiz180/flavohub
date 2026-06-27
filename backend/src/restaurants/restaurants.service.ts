@@ -23,6 +23,15 @@ export class RestaurantsService {
 
   async create(dto: CreateRestaurantDto, actorId: string): Promise<Restaurant> {
     const restaurant = await this.prisma.restaurant.create({ data: dto });
+
+    if (dto.latitude !== undefined && dto.longitude !== undefined) {
+      await this.prisma.$executeRaw`
+        UPDATE "Restaurant"
+        SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+        WHERE id = ${restaurant.id}
+      `;
+    }
+
     await this.auditLog.log({
       actorId,
       action: 'CREATE',
@@ -115,6 +124,15 @@ export class RestaurantsService {
   async update(id: string, dto: UpdateRestaurantDto, actorId: string): Promise<Restaurant> {
     const before = await this.findOrThrow(id);
     const restaurant = await this.prisma.restaurant.update({ where: { id }, data: dto });
+
+    if (dto.latitude !== undefined && dto.longitude !== undefined) {
+      await this.prisma.$executeRaw`
+        UPDATE "Restaurant"
+        SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+        WHERE id = ${id}
+      `;
+    }
+
     await this.auditLog.log({
       actorId,
       action: 'UPDATE',

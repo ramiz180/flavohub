@@ -7,9 +7,12 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeScreen } from '../../components/ui/SafeScreen';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../lib/store/auth.store';
 import { colors, cardShadow } from '../../constants/Colors';
 import { type } from '../../constants/Typography';
@@ -18,12 +21,14 @@ import { space, radius } from '../../constants/Spacing';
 interface MenuRow {
   icon: string;
   label: string;
+  subLabel?: string;
   onPress: () => void;
   danger?: boolean;
 }
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { customer, logout } = useAuthStore();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -46,16 +51,31 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const name = customer?.name ?? 'Guest';
-  const phone = customer?.phone ?? '';
-  const initials = name
-    .split(' ')
-    .map((w: string) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const name = customer?.name ?? 'Guest User';
+  const phone = customer?.phone ?? '+91 XXXXX XXXXX';
 
-  const menuRows: MenuRow[] = [
+  const menuRowsFood: MenuRow[] = [
+    {
+      icon: '🍔',
+      label: 'Your Orders',
+      subLabel: 'Track, reorder, or get help',
+      onPress: () => router.push('/(tabs)/orders'),
+    },
+    {
+      icon: '❤️',
+      label: 'Favorite Restaurants',
+      subLabel: 'Your curated list of top spots',
+      onPress: () => Alert.alert('Coming soon', 'Favorite Restaurants'),
+    },
+    {
+      icon: '🎫',
+      label: 'Offers & Promos',
+      subLabel: 'Coupons curated for you',
+      onPress: () => Alert.alert('Coming soon', 'Coupons screen'),
+    },
+  ];
+
+  const menuRowsAccount: MenuRow[] = [
     {
       icon: '👤',
       label: 'Personal Details',
@@ -64,98 +84,128 @@ export default function ProfileScreen() {
     {
       icon: '📍',
       label: 'Saved Addresses',
-      onPress: () => Alert.alert('Coming soon', 'Saved addresses screen'),
+      onPress: () => router.push('/addresses'),
     },
     {
-      icon: '🛒',
-      label: 'My Orders',
-      onPress: () => router.push('/(tabs)/orders'),
+      icon: '⚙️',
+      label: 'Settings',
+      onPress: () => Alert.alert('Coming soon', 'Settings screen'),
     },
+  ];
+
+  const menuRowsOther: MenuRow[] = [
     {
-      icon: '🔔',
-      label: 'Notifications',
-      onPress: () => Alert.alert('Coming soon', 'Notifications screen'),
-    },
-    {
-      icon: '❓',
-      label: 'Help Center',
+      icon: '🎧',
+      label: 'Help & Support',
       onPress: () => Alert.alert('Coming soon', 'Help center'),
     },
     {
-      icon: '🔒',
-      label: 'Privacy Policy',
+      icon: '📄',
+      label: 'Terms & Privacy',
       onPress: () => Alert.alert('Coming soon', 'Privacy policy'),
     },
   ];
 
-  return (
-    <SafeScreen>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
-
-        {/* Avatar + name card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{name}</Text>
-            {phone ? <Text style={styles.profilePhone}>{phone}</Text> : null}
-          </View>
-        </View>
-
-        {/* Menu list */}
-        <View style={styles.menuCard}>
-          {menuRows.map((row, index) => (
-            <View key={row.label}>
-              <TouchableOpacity style={styles.menuRow} onPress={row.onPress} activeOpacity={0.7}>
-                <View style={styles.menuRowLeft}>
-                  <Text style={styles.menuRowIcon}>{row.icon}</Text>
-                  <Text style={[styles.menuRowLabel, row.danger && { color: colors.primary }]}>
-                    {row.label}
-                  </Text>
-                </View>
-                <Text style={styles.menuRowChevron}>›</Text>
-              </TouchableOpacity>
-              {index < menuRows.length - 1 && <View style={styles.rowDivider} />}
-            </View>
-          ))}
-        </View>
-
-        {/* Logout */}
-        <View style={styles.menuCard}>
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={handleLogout}
-            disabled={loggingOut}
-            activeOpacity={0.7}
-          >
+  const renderMenuCard = (rows: MenuRow[]) => (
+    <View style={styles.menuCard}>
+      {rows.map((row, index) => (
+        <View key={row.label}>
+          <TouchableOpacity style={styles.menuRow} onPress={row.onPress} activeOpacity={0.7}>
             <View style={styles.menuRowLeft}>
-              {loggingOut ? (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                  style={{ marginRight: space.md }}
-                />
-              ) : (
-                <Text style={styles.menuRowIcon}>🚪</Text>
-              )}
-              <Text style={[styles.menuRowLabel, { color: colors.primary }]}>
-                {loggingOut ? 'Logging out...' : 'Logout'}
-              </Text>
+              <View style={styles.menuIconWrap}>
+                 <Text style={styles.menuRowIcon}>{row.icon}</Text>
+              </View>
+              <View>
+                 <Text style={[styles.menuRowLabel, row.danger && { color: colors.danger }]}>
+                   {row.label}
+                 </Text>
+                 {row.subLabel && <Text style={styles.menuRowSub}>{row.subLabel}</Text>}
+              </View>
             </View>
             <Text style={styles.menuRowChevron}>›</Text>
           </TouchableOpacity>
+          {index < rows.length - 1 && <View style={styles.rowDivider} />}
+        </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <SafeScreen edges={['top']}>
+      {/* Background Gradient */}
+      <LinearGradient colors={[colors.primaryTint, colors.surfaceAlt, colors.surfaceAlt]} style={StyleSheet.absoluteFillObject} />
+      
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Profile</Text>
+      </View>
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <LinearGradient colors={['#FF8A00', '#E52E71']} style={styles.avatarGradient}>
+             <Image source={{ uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=200` }} style={styles.avatarImg} />
+          </LinearGradient>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{name}</Text>
+            <Text style={styles.profilePhone}>{phone}</Text>
+            <TouchableOpacity style={styles.editBtn}>
+               <Text style={styles.editBtnText}>Edit Profile</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <Text style={styles.version}>FlavoHub v1.0 · Fresh Food Delivered Fast</Text>
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+           <View style={styles.statBox}>
+              <Text style={styles.statVal}>12</Text>
+              <Text style={styles.statLabel}>Orders</Text>
+           </View>
+           <View style={styles.statDivider} />
+           <View style={styles.statBox}>
+              <Text style={styles.statVal}>4</Text>
+              <Text style={styles.statLabel}>Favorites</Text>
+           </View>
+           <View style={styles.statDivider} />
+           <View style={styles.statBox}>
+              <Text style={styles.statVal}>₹450</Text>
+              <Text style={styles.statLabel}>Saved</Text>
+           </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Food & Orders</Text>
+        {renderMenuCard(menuRowsFood)}
+
+        <Text style={styles.sectionTitle}>Account</Text>
+        {renderMenuCard(menuRowsAccount)}
+
+        <Text style={styles.sectionTitle}>More</Text>
+        {renderMenuCard(menuRowsOther)}
+
+        {/* Logout */}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          disabled={loggingOut}
+          activeOpacity={0.8}
+        >
+          {loggingOut ? (
+            <ActivityIndicator size="small" color={colors.surface} />
+          ) : (
+            <>
+               <Text style={styles.logoutIcon}>🚪</Text>
+               <Text style={styles.logoutText}>Logout</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.footer}>
+           <Text style={styles.footerLogo}>FLAVOHUB</Text>
+           <Text style={styles.version}>Version 1.0.0 (Premium)</Text>
+        </View>
       </ScrollView>
     </SafeScreen>
   );
@@ -164,62 +214,104 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surfaceAlt,
   },
   content: {
-    paddingBottom: 40,
+    paddingHorizontal: space.lg,
   },
   header: {
-    paddingHorizontal: space.lg,
     paddingVertical: space.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderColor: colors.borderSubtle,
+    alignItems: 'center',
   },
   headerTitle: {
-    ...type.title,
+    ...type.h2,
     color: colors.ink,
-    textAlign: 'center',
   },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    margin: space.lg,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: space.lg,
+    marginTop: space.sm,
+    marginBottom: space.lg,
     ...cardShadow,
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#6366F1',
-    alignItems: 'center',
-    justifyContent: 'center',
+  avatarGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    padding: 3, // For border effect
   },
-  avatarText: {
-    ...type.h2,
-    color: colors.surface,
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
   profileInfo: {
     marginLeft: space.lg,
     flex: 1,
   },
   profileName: {
-    ...type.h3,
+    ...type.h2,
+    fontSize: 22,
     color: colors.ink,
   },
   profilePhone: {
-    ...type.body,
+    ...type.bodyMedium,
     color: colors.muted,
+    marginTop: 2,
+  },
+  editBtn: {
+    marginTop: space.sm,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: space.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    alignSelf: 'flex-start',
+  },
+  editBtnText: {
+    ...type.caption,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    paddingVertical: space.md,
+    marginBottom: space.lg,
+    ...cardShadow,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statVal: {
+    ...type.h2,
+    color: colors.ink,
+  },
+  statLabel: {
+    ...type.caption,
+    color: colors.muted,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.borderSubtle,
+    marginVertical: space.sm,
+  },
+  sectionTitle: {
+    ...type.h3,
+    color: colors.ink,
+    marginBottom: space.sm,
     marginTop: space.xs,
   },
   menuCard: {
     backgroundColor: colors.surface,
-    marginHorizontal: space.lg,
-    marginBottom: space.md,
-    borderRadius: radius.lg,
+    marginBottom: space.xl,
+    borderRadius: radius.xl,
     overflow: 'hidden',
     ...cardShadow,
   },
@@ -228,33 +320,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.lg,
-    height: 56,
+    paddingVertical: space.md,
+    minHeight: 64,
   },
   menuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  menuIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: space.md,
+  },
   menuRowIcon: {
     fontSize: 20,
-    width: 32,
   },
   menuRowLabel: {
-    ...type.bodyMedium,
+    ...type.h3,
+    fontSize: 16,
     color: colors.ink,
   },
+  menuRowSub: {
+    ...type.caption,
+    color: colors.muted,
+    marginTop: 2,
+  },
   menuRowChevron: {
-    fontSize: 20,
+    fontSize: 24,
     color: colors.muted,
   },
   rowDivider: {
     height: 1,
     backgroundColor: colors.borderSubtle,
-    marginLeft: space.lg + 32,
+    marginLeft: space.lg + 56, // Align with text
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.danger,
+    borderRadius: radius.xl,
+    height: 56,
+    marginTop: space.md,
+    ...cardShadow,
+    shadowColor: colors.danger,
+  },
+  logoutIcon: {
+    fontSize: 20,
+    marginRight: space.sm,
+  },
+  logoutText: {
+    ...type.button,
+    color: colors.surface,
+    fontSize: 16,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: space.xxl,
+    marginBottom: space.md,
+  },
+  footerLogo: {
+    ...type.display,
+    fontSize: 18,
+    color: colors.border,
+    letterSpacing: 2,
   },
   version: {
     ...type.caption,
     color: colors.muted,
-    textAlign: 'center',
-    marginTop: space.md,
+    marginTop: 4,
   },
 });

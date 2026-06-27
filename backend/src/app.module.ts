@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdminModule } from './admin/admin.module';
+import { BullModule } from '@nestjs/bullmq';
 import { AppConfigModule } from './config/app-config.module';
+import { AppConfigService } from './config/app-config.service';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { KeepaliveService } from './common/keepalive.service';
@@ -23,11 +25,39 @@ import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { SettingsModule } from './settings/settings.module';
+import { DeliveryModule } from './delivery/delivery.module';
+
+import { UploadModule } from './upload/upload.module';
+import { LocationModule } from './location/location.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    BullModule.forRootAsync({
+      imports: [AppConfigModule],
+      useFactory: async (configService: AppConfigService) => ({
+        connection: {
+          url: configService.redisUrl,
+          maxRetriesPerRequest: 3,
+          retryStrategy: (times: number) => {
+            if (times > 3) {
+              console.error('====================================================');
+              console.error('Application startup is failing because Redis is not available.');
+              console.error('Please verify:');
+              console.error('1. Redis server is running.');
+              console.error('2. REDIS_URL is configured correctly.');
+              console.error('3. BullMQ connection settings are correct.');
+              console.error('====================================================');
+              process.exit(1);
+            }
+            return Math.min(times * 50, 2000);
+          },
+        },
+      }),
+      inject: [AppConfigService],
+    }),
     AppConfigModule,
+    UploadModule,
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -49,6 +79,8 @@ import { SettingsModule } from './settings/settings.module';
     CustomerCouponModule,
     CustomerPaymentModule,
     RestaurantCustomerOrdersModule,
+    DeliveryModule,
+    LocationModule,
   ],
   providers: [KeepaliveService],
 })

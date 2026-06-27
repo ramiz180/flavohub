@@ -12,6 +12,7 @@ import { useCallback, useRef, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
 import imageCompression from 'browser-image-compression';
+import { useAuth } from '@/lib/auth-context';
 
 interface Props {
   onUploadComplete: (url: string) => void;
@@ -66,6 +67,7 @@ export default function ImageUploadWithCrop({
   aspectRatio = 1,
   initialUrl,
 }: Props) {
+  const { accessToken } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
@@ -109,25 +111,25 @@ export default function ImageUploadWithCrop({
         useWebWorker: true,
       });
 
-      const cloudName = process.env['NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME'];
-      const uploadPreset = process.env['NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET'];
-      if (!cloudName || !uploadPreset) {
-        throw new Error('Cloudinary env vars not set');
-      }
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+      if (!accessToken) throw new Error('Not authenticated');
 
       const formData = new FormData();
       formData.append('file', compressed);
-      formData.append('upload_preset', uploadPreset);
 
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      const res = await fetch(`${apiUrl}/upload`, {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: formData,
       });
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-      const data = (await res.json()) as { secure_url: string };
+      const json = (await res.json()) as { success: boolean; data?: { secure_url: string }; secure_url?: string };
+      const secureUrl = json.data?.secure_url || json.secure_url || '';
 
-      setPreviewUrl(data.secure_url);
-      onUploadComplete(data.secure_url);
+      setPreviewUrl(secureUrl);
+      onUploadComplete(secureUrl);
       setImageSrc(null);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');

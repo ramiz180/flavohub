@@ -71,6 +71,15 @@ export interface CreateRestaurantPayload {
 }
 
 export interface UpdateRestaurantPayload {
+  name?: string;
+  description?: string;
+  addressLine?: string;
+  city?: string;
+  phone?: string;
+  email?: string | null;
+  cuisineType?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   logoUrl?: string | null;
 }
 

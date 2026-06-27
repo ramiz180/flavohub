@@ -32,4 +32,98 @@ export class AppConfigService {
   get jwtRefreshTtl(): string {
     return this.configService.getOrThrow<string>('JWT_REFRESH_TTL');
   }
+
+  get cloudinaryCloudName(): string | undefined {
+    return this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
+  }
+
+  get cloudinaryApiKey(): string | undefined {
+    return this.configService.get<string>('CLOUDINARY_API_KEY');
+  }
+
+  get cloudinaryApiSecret(): string | undefined {
+    return this.configService.get<string>('CLOUDINARY_API_SECRET');
+  }
+
+  get redisUrl(): string {
+    return this.configService.getOrThrow<string>('REDIS_URL');
+  }
+
+  get shadowfaxEnabled(): boolean {
+    return this.configService.get<string>('SHADOWFAX_ENABLED') === 'true';
+  }
+
+  get shadowfaxEnv(): 'test' | 'production' | 'staging' {
+    return this.configService.get<'test' | 'production' | 'staging'>('SHADOWFAX_ENV') ?? 'test';
+  }
+
+  get shadowfaxBaseUrl(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_BASE_URL');
+  }
+
+  get shadowfaxApiKey(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_API_KEY');
+  }
+
+  get shadowfaxClientId(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_CLIENT_ID');
+  }
+
+  get shadowfaxClientSecret(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_CLIENT_SECRET');
+  }
+
+  get shadowfaxAuthToken(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_AUTH_TOKEN');
+  }
+
+  get shadowfaxWebhookSecret(): string | undefined {
+    return this.configService.get<string>('SHADOWFAX_WEBHOOK_SECRET');
+  }
+
+  get shadowfaxTimeout(): number {
+    const val = this.configService.get<string>('SHADOWFAX_TIMEOUT');
+    return val ? parseInt(val, 10) : 30000;
+  }
+
+  get shadowfaxRetryCount(): number {
+    const val = this.configService.get<string>('SHADOWFAX_RETRY_COUNT');
+    return val ? parseInt(val, 10) : 3;
+  }
+
+  get shadowfaxLogging(): boolean {
+    return this.configService.get<string>('SHADOWFAX_LOGGING') === 'true';
+  }
+
+  get borzoEnv(): 'test' | 'production' {
+    return this.configService.getOrThrow<'test' | 'production'>('BORZO_ENV');
+  }
+
+  get borzoApiToken(): string | undefined {
+    return this.configService.get<string>('BORZO_API_TOKEN');
+  }
+
+  get gpsPollIntervalMs(): number {
+    return this.configService.getOrThrow<number>('GPS_POLL_INTERVAL_MS');
+  }
+
+  get googleMapsServerApiKey(): string | undefined {
+    return this.configService.get<string>('GOOGLE_MAPS_SERVER_API_KEY');
+  }
+
+  get googlePlacesApiKey(): string | undefined {
+    return this.configService.get<string>('GOOGLE_PLACES_API_KEY');
+  }
+
+  get googleGeocodingApiKey(): string | undefined {
+    return this.configService.get<string>('GOOGLE_GEOCODING_API_KEY') || this.configService.get<string>('GOOGLE_MAPS_API_KEY');
+  }
+
+  get googleDirectionsApiKey(): string | undefined {
+    return this.configService.get<string>('GOOGLE_DIRECTIONS_API_KEY');
+  }
+
+  get googleDistanceMatrixApiKey(): string | undefined {
+    return this.configService.get<string>('GOOGLE_DISTANCE_MATRIX_API_KEY') || this.configService.get<string>('GOOGLE_MAPS_API_KEY');
+  }
 }

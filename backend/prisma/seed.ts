@@ -30,10 +30,18 @@ async function main(): Promise<void> {
 
   // ── Sample restaurants (fixed IDs for idempotency) ────────────────────────
 
+  const restPasswordHash = await hash('password@123');
+
+  const owner1 = await prisma.user.upsert({
+    where: { email: 'hello@pizzapalace.example' },
+    update: {},
+    create: { email: 'hello@pizzapalace.example', passwordHash: restPasswordHash, fullName: 'Pizza Palace Owner', role: Role.RESTAURANT_OWNER },
+  });
+
   // 1. PENDING restaurant
   await prisma.restaurant.upsert({
     where: { id: 'seed-rest-pending-001' },
-    update: {},
+    update: { ownerId: owner1.id },
     create: {
       id: 'seed-rest-pending-001',
       name: 'Pizza Palace',
@@ -45,16 +53,25 @@ async function main(): Promise<void> {
       cuisineType: 'Italian',
       latitude: 19.076,
       longitude: 72.8777,
+      logoUrl: 'https://images.unsplash.com/photo-1590947132387-155cc02f3212?q=80&w=200&auto=format&fit=crop',
+      coverImageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=800&auto=format&fit=crop',
       status: RestaurantStatus.PENDING,
       isActive: false,
+      ownerId: owner1.id,
     },
+  });
+
+  const owner2 = await prisma.user.upsert({
+    where: { email: 'contact@burgerbarn.example' },
+    update: {},
+    create: { email: 'contact@burgerbarn.example', passwordHash: restPasswordHash, fullName: 'Burger Barn Owner', role: Role.RESTAURANT_OWNER },
   });
 
   // 2. APPROVED + active restaurant with full-week hours
   const approvedId = 'seed-rest-approved-001';
   await prisma.restaurant.upsert({
     where: { id: approvedId },
-    update: {},
+    update: { ownerId: owner2.id },
     create: {
       id: approvedId,
       name: 'Burger Barn',
@@ -66,8 +83,11 @@ async function main(): Promise<void> {
       cuisineType: 'American',
       latitude: 12.9716,
       longitude: 77.5946,
+      logoUrl: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=200&auto=format&fit=crop',
+      coverImageUrl: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?q=80&w=800&auto=format&fit=crop',
       status: RestaurantStatus.APPROVED,
       isActive: true,
+      ownerId: owner2.id,
     },
   });
 
@@ -87,10 +107,16 @@ async function main(): Promise<void> {
     });
   }
 
+  const owner3 = await prisma.user.upsert({
+    where: { email: 'info@sushipot.example' },
+    update: {},
+    create: { email: 'info@sushipot.example', passwordHash: restPasswordHash, fullName: 'Sushi Spot Owner', role: Role.RESTAURANT_OWNER },
+  });
+
   // 3. REJECTED restaurant
   await prisma.restaurant.upsert({
     where: { id: 'seed-rest-rejected-001' },
-    update: {},
+    update: { ownerId: owner3.id },
     create: {
       id: 'seed-rest-rejected-001',
       name: 'Sushi Spot',
@@ -98,12 +124,16 @@ async function main(): Promise<void> {
       addressLine: '15 Ocean Drive',
       city: 'Chennai',
       phone: '+91-44-5555-9999',
+      email: 'info@sushipot.example',
       cuisineType: 'Japanese',
       latitude: 13.0827,
       longitude: 80.2707,
+      logoUrl: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?q=80&w=200&auto=format&fit=crop',
+      coverImageUrl: 'https://images.unsplash.com/photo-1553621042-f6e147245754?q=80&w=800&auto=format&fit=crop',
       status: RestaurantStatus.REJECTED,
       isActive: false,
       rejectionReason: 'Food safety certificate missing — please reapply with valid documentation.',
+      ownerId: owner3.id,
     },
   });
 
@@ -192,6 +222,7 @@ async function main(): Promise<void> {
       name: 'Butter Chicken',
       description: 'Creamy tomato-based chicken curry',
       price: 320,
+      imageUrl: 'https://images.unsplash.com/photo-1603894584373-5ac82b6ae398?q=80&w=400&auto=format&fit=crop',
       isAvailable: true,
       sortOrder: 1,
     },

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNumber, IsOptional, IsString, Max, Min, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsNumber, IsOptional, IsString, Max, Min, IsNotEmpty, IsUrl } from 'class-validator';
 
 export class UpdateOwnerProfileDto {
   @ApiPropertyOptional()
@@ -54,4 +54,9 @@ export class UpdateOwnerProfileDto {
   @Min(-180)
   @Max(180)
   longitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl()
+  logoUrl?: string;
 }

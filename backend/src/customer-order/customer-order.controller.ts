@@ -15,6 +15,7 @@ export class CustomerOrderController {
   @UseGuards(CustomerJwtAuthGuard)
   @ApiOperation({ summary: 'Place order from cart' })
   checkout(@Request() req: { user: { customerId: string } }, @Body() dto: CheckoutDto) {
+    console.log('Checkout Payload:', dto);
     return this.service.checkout(req.user.customerId, dto);
   }
 

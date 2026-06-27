@@ -6,18 +6,17 @@ export class NearbyQueryDto {
   @ApiPropertyOptional({ example: 12.29, description: 'Latitude' })
   @Type(() => Number)
   @IsNumber()
-  declare lat: number;
+  declare latitude: number;
 
   @ApiPropertyOptional({ example: 76.64, description: 'Longitude' })
   @Type(() => Number)
   @IsNumber()
-  declare lng: number;
+  declare longitude: number;
 
   @ApiPropertyOptional({ example: 5, description: 'Radius in km', default: 5 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  @Max(50)
   radius?: number = 5;
 }

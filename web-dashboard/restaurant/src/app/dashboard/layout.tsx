@@ -1,88 +1,51 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useAuth } from '@/lib/auth-context';
+import AuthGuard from '@/components/auth-guard';
+import { SidebarProvider, useSidebar } from '@/components/sidebar/SidebarContext';
+import Sidebar from '@/components/sidebar/Sidebar';
+import TopBar from '@/components/TopBar';
 
-const NAV = [
-  { href: '/dashboard', label: 'Overview' },
-  { href: '/dashboard/profile', label: 'Profile' },
-  { href: '/dashboard/hours', label: 'Hours' },
-  { href: '/dashboard/menu', label: 'Menu' },
-  { href: '/dashboard/orders', label: 'Orders' },
-  { href: '/dashboard/customer-orders', label: 'Customer Orders' },
-];
-
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { logout, restaurantProfile } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  function handleLogout(): void {
-    logout();
-    router.replace('/login');
-  }
-
-  const restaurantName = restaurantProfile?.name ?? '';
-  const logoUrl = restaurantProfile?.logoUrl ?? null;
-  const initial = restaurantName.charAt(0).toUpperCase();
+function DashboardShell({ children }: { children: ReactNode }) {
+  const { isOpen, isCollapsed, close, toggleCollapse } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white px-6 py-3">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Restaurant identity — prominent */}
-            <div className="flex items-center gap-2">
-              {logoUrl ? (
-                <Image
-                  src={logoUrl}
-                  alt={restaurantName}
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 rounded-full object-cover"
-                />
-              ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-700">
-                  {initial}
-                </div>
-              )}
-              {restaurantName && (
-                <span className="hidden font-bold text-lg text-gray-900 md:block">
-                  {restaurantName}
-                </span>
-              )}
-            </div>
+    <div className="min-h-screen bg-[#f4f6f8]">
+      <Sidebar
+        isMobileOpen={isOpen}
+        onMobileClose={close}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapse}
+      />
 
-            <nav className="flex gap-4">
-              {NAV.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`text-sm font-medium ${
-                    pathname === href
-                      ? 'text-emerald-700 underline underline-offset-4'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {label}
-                </Link>
-              ))}
-            </nav>
+      {/*
+        Content shifts right by sidebar width on desktop/tablet.
+        Mobile: 0 padding
+        Tablet (md): 80px padding (sidebar is always collapsed on tablet)
+        Laptop+ (lg): 80px or 280px based on isCollapsed
+      */}
+      <div
+        className={`flex min-h-screen flex-col transition-all duration-300 ease-in-out w-full md:pl-[80px] ${
+          isCollapsed ? 'lg:pl-[80px]' : 'lg:pl-[280px]'
+        }`}
+      >
+        <TopBar />
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 page-enter">
+          <div className="mx-auto max-w-[1600px] w-full">
+            {children}
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* FlavoHub branding — secondary */}
-            <span className="hidden text-sm text-gray-400 sm:block">Powered by FlavoHub</span>
-            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-4xl p-6">{children}</main>
+        </main>
+      </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return (
+    <AuthGuard>
+      <SidebarProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </SidebarProvider>
+    </AuthGuard>
   );
 }

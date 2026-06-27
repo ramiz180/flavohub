@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import AuthGuard from '@/components/auth-guard';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { useRestaurantSocket } from '@/lib/use-restaurant-socket';
@@ -67,21 +66,50 @@ function OrderCard({
 
   const itemsSummary = order.items.map((i) => `${i.name} ×${i.quantity}`).join(', ');
   const total = order.total ? `₹${order.total}` : null;
+  const delivery = order.deliveries?.[0]; // Get the latest delivery
 
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
+    <div className="rounded-3xl border border-slate-100 bg-white p-5 md:p-6 shadow-sm ring-1 ring-slate-100/50">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <span className="font-mono text-sm font-semibold text-gray-800">{order.orderNumber}</span>
-          {total && <span className="ml-2 text-sm text-gray-500">{total}</span>}
+          <span className="font-mono text-sm font-bold text-slate-800">{order.orderNumber}</span>
+          {total && <span className="ml-2 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">{total}</span>}
         </div>
         <StatusBadge status={order.status} />
       </div>
 
-      <p className="mt-1 text-sm text-gray-600">{itemsSummary || 'No items'}</p>
+      <p className="mt-3 text-sm text-slate-600">{itemsSummary || 'No items'}</p>
 
       {order.specialInstructions && (
-        <p className="mt-1 text-xs text-gray-500 italic">"{order.specialInstructions}"</p>
+        <p className="mt-2 rounded-xl bg-slate-50 p-3 text-xs italic text-slate-600">"{order.specialInstructions}"</p>
+      )}
+
+      {delivery && (
+        <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-bold text-emerald-800">
+            <span>Delivery: {delivery.partner}</span>
+            <span className="inline-block rounded-full bg-emerald-200 px-2 py-0.5 text-[10px] uppercase tracking-wider">{delivery.status}</span>
+          </div>
+          <div className="mt-2 text-sm text-slate-700">
+            {delivery.riderName ? `Rider: ${delivery.riderName} (${delivery.riderPhone})` : 'Assigning rider...'}
+          </div>
+          {(delivery.awbNumber || delivery.trackingId) && (
+            <div className="mt-1 text-xs text-slate-500 font-mono">
+              {delivery.awbNumber && `AWB: ${delivery.awbNumber} `}
+              {delivery.trackingId && `TRK: ${delivery.trackingId}`}
+            </div>
+          )}
+          {delivery.eta && (
+            <div className="mt-1 text-xs font-medium text-emerald-700">
+              ETA: {fmt(delivery.eta)}
+            </div>
+          )}
+          {delivery.trackingUrl && (
+            <a href={delivery.trackingUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold text-xs text-emerald-600 hover:text-emerald-700 hover:underline">
+              Track Order →
+            </a>
+          )}
+        </div>
       )}
 
       {/* History timestamps */}
@@ -96,13 +124,13 @@ function OrderCard({
       )}
 
       {/* Action buttons */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-3">
         {order.status === 'PLACED' && (
           <>
             <button
               onClick={() => void doAction('accept')}
               disabled={busy}
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              className="w-full sm:w-auto flex-1 sm:flex-none rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
             >
               Accept
             </button>
@@ -112,7 +140,7 @@ function OrderCard({
                 setError('');
               }}
               disabled={busy}
-              className="rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              className="w-full sm:w-auto flex-1 sm:flex-none rounded-xl border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 disabled:pointer-events-none disabled:opacity-50"
             >
               Reject
             </button>
@@ -122,7 +150,7 @@ function OrderCard({
           <button
             onClick={() => void doAction('start-preparing')}
             disabled={busy}
-            className="rounded bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+            className="w-full sm:w-auto flex-1 sm:flex-none rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
           >
             Start Preparing
           </button>
@@ -131,7 +159,7 @@ function OrderCard({
           <button
             onClick={() => void doAction('ready')}
             disabled={busy}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full sm:w-auto flex-1 sm:flex-none rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
           >
             Mark Ready
           </button>
@@ -140,7 +168,7 @@ function OrderCard({
           <button
             onClick={() => void doAction('delivered')}
             disabled={busy}
-            className="rounded bg-gray-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            className="w-full sm:w-auto flex-1 sm:flex-none rounded-xl bg-slate-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
           >
             Mark Delivered
           </button>
@@ -149,35 +177,37 @@ function OrderCard({
 
       {/* Inline reject form */}
       {rejectOpen && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Rejection reason…"
-            className="flex-1 rounded border px-2 py-1 text-sm"
+            className="w-full sm:flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             autoFocus
           />
-          <button
-            onClick={() => void doAction('reject', rejectReason.trim())}
-            disabled={busy || !rejectReason.trim()}
-            className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            Confirm
-          </button>
-          <button
-            onClick={() => {
-              setRejectOpen(false);
-              setRejectReason('');
-            }}
-            className="rounded border px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => void doAction('reject', rejectReason.trim())}
+              disabled={busy || !rejectReason.trim()}
+              className="w-full sm:w-auto flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 disabled:pointer-events-none disabled:opacity-50"
+            >
+              Confirm
+            </button>
+            <button
+              onClick={() => {
+                setRejectOpen(false);
+                setRejectReason('');
+              }}
+              className="w-full sm:w-auto flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition-all hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-3 rounded-xl bg-red-50 p-2 text-center text-sm font-medium text-red-600">{error}</p>}
     </div>
   );
 }
@@ -287,47 +317,50 @@ export default function OrdersPage() {
   const history = orders.filter((o) => HISTORY.includes(o.status)).slice(0, 20);
 
   return (
-    <AuthGuard>
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Orders</h1>
-          <button
-            onClick={() => void loadOrders()}
-            className="text-sm text-emerald-700 hover:underline"
-          >
-            Refresh
-          </button>
-        </div>
-
-        {fetchError && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{fetchError}</div>
-        )}
-
-        {loading ? (
-          <p className="text-sm text-gray-400">Loading orders…</p>
-        ) : (
-          <div className="space-y-10">
-            <Section
-              title="Incoming"
-              orders={incoming}
-              onAction={handleAction}
-              emptyText="No new orders"
-            />
-            <Section
-              title="Active"
-              orders={active}
-              onAction={handleAction}
-              emptyText="No orders in progress"
-            />
-            <Section
-              title="History (last 20)"
-              orders={history}
-              onAction={handleAction}
-              emptyText="No completed or rejected orders"
-            />
-          </div>
-        )}
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-slate-900">Orders</h2>
+        <button
+          onClick={() => void loadOrders()}
+          className="rounded-xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+        >
+          Refresh
+        </button>
       </div>
-    </AuthGuard>
+
+      {fetchError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{fetchError}</div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
+            <p className="text-sm text-slate-400">Loading orders…</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          <Section
+            title="Incoming"
+            orders={incoming}
+            onAction={handleAction}
+            emptyText="No new orders"
+          />
+          <Section
+            title="Active"
+            orders={active}
+            onAction={handleAction}
+            emptyText="No orders in progress"
+          />
+          <Section
+            title="History (last 20)"
+            orders={history}
+            onAction={handleAction}
+            emptyText="No completed or rejected orders"
+          />
+        </div>
+      )}
+    </div>
   );
 }

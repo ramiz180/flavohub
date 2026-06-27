@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
 import { UpdateCustomerAddressDto } from './dto/update-customer-address.dto';
@@ -15,22 +15,73 @@ export class CustomerAddressService {
   }
 
   async createAddress(customerId: string, dto: CreateCustomerAddressDto) {
-    const existing = await this.prisma.customerAddress.count({ where: { customerId } });
-    const isDefault = existing === 0;
+    if (!dto.latitude || !dto.longitude) {
+      throw new BadRequestException('Latitude and longitude are required to save an address.');
+    }
+    const cleanAddress = dto.address?.trim() ?? '';
+    if (!cleanAddress || cleanAddress.toLowerCase() === 'locating...') {
+      throw new BadRequestException('A valid formatted address is required.');
+    }
 
-    return this.prisma.customerAddress.create({
+    const label = dto.label?.trim() || 'Home';
+
+    // 1. Check for exact label match (prevent duplicate Home/Work)
+    let existingMatch = await this.prisma.customerAddress.findFirst({
+      where: { customerId, label },
+    });
+
+    // 2. If no exact label match, check for spatial duplicate within 50 meters
+    if (!existingMatch) {
+      const nearbyAddresses: any[] = await this.prisma.$queryRaw`
+        SELECT id FROM "CustomerAddress"
+        WHERE "customerId" = ${customerId}::uuid
+        AND ST_DWithin(
+          location,
+          ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326),
+          50,
+          true
+        )
+        LIMIT 1
+      `;
+      if (nearbyAddresses.length > 0) {
+        existingMatch = await this.prisma.customerAddress.findUnique({
+          where: { id: nearbyAddresses[0].id },
+        });
+      }
+    }
+
+    if (existingMatch) {
+      // Update existing instead of duplicating
+      return this.updateAddress(customerId, existingMatch.id, {
+        ...dto,
+        label,
+      });
+    }
+
+    const existingCount = await this.prisma.customerAddress.count({ where: { customerId } });
+    const isDefault = existingCount === 0;
+
+    const address = await this.prisma.customerAddress.create({
       data: {
         customerId,
-        label: dto.label ?? 'Home',
-        addressLine: dto.addressLine,
+        label,
+        addressLine: cleanAddress,
         city: dto.city,
         state: dto.state,
         pincode: dto.pincode,
-        lat: dto.lat,
-        lng: dto.lng,
+        lat: dto.latitude,
+        lng: dto.longitude,
         isDefault,
       },
     });
+
+    await this.prisma.$executeRaw`
+      UPDATE "CustomerAddress"
+      SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+      WHERE id = ${address.id}
+    `;
+
+    return address;
   }
 
   async updateAddress(customerId: string, addressId: string, dto: UpdateCustomerAddressDto) {
@@ -39,10 +90,38 @@ export class CustomerAddressService {
       throw new NotFoundException('Address not found');
     }
 
-    return this.prisma.customerAddress.update({
+    // Map new DTO fields to Prisma
+    const dataToUpdate: any = { ...dto };
+    if (dto.address !== undefined) {
+      dataToUpdate.addressLine = dto.address;
+      delete dataToUpdate.address;
+    }
+    if (dto.landmark !== undefined) {
+      delete dataToUpdate.landmark;
+    }
+    if (dto.latitude !== undefined) {
+      dataToUpdate.lat = dto.latitude;
+      delete dataToUpdate.latitude;
+    }
+    if (dto.longitude !== undefined) {
+      dataToUpdate.lng = dto.longitude;
+      delete dataToUpdate.longitude;
+    }
+
+    const updated = await this.prisma.customerAddress.update({
       where: { id: addressId },
-      data: dto,
+      data: dataToUpdate,
     });
+
+    if (dto.latitude !== undefined && dto.longitude !== undefined && dto.latitude !== null && dto.longitude !== null) {
+      await this.prisma.$executeRaw`
+        UPDATE "CustomerAddress"
+        SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)
+        WHERE id = ${addressId}
+      `;
+    }
+
+    return updated;
   }
 
   async deleteAddress(customerId: string, addressId: string) {

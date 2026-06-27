@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@flavohub/shared';
 import type { JwtUser } from '../auth/interfaces/jwt-user.interface';
@@ -23,6 +23,12 @@ export class RestaurantCustomerOrdersController {
     return this.service.listOrders(user.id, query);
   }
 
+  @Get(':id/delivery')
+  @ApiOperation({ summary: 'Get delivery info for a specific customer order' })
+  getDelivery(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.service.getDelivery(user.id, id);
+  }
+
   @Patch(':id/accept')
   @ApiOperation({ summary: 'Accept a PLACED customer order' })
   accept(@CurrentUser() user: JwtUser, @Param('id') id: string) {
@@ -35,6 +41,12 @@ export class RestaurantCustomerOrdersController {
     return this.service.reject(user.id, id);
   }
 
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel a PLACED or ACCEPTED customer order and cancel Shadowfax delivery' })
+  cancel(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.service.cancel(user.id, id);
+  }
+
   @Patch(':id/preparing')
   @ApiOperation({ summary: 'Mark an ACCEPTED customer order as PREPARING' })
   preparing(@CurrentUser() user: JwtUser, @Param('id') id: string) {
@@ -42,7 +54,7 @@ export class RestaurantCustomerOrdersController {
   }
 
   @Patch(':id/ready')
-  @ApiOperation({ summary: 'Mark a PREPARING customer order as READY' })
+  @ApiOperation({ summary: 'Mark a PREPARING customer order as READY — automatically creates Shadowfax shipment' })
   ready(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.service.ready(user.id, id);
   }

@@ -16,16 +16,24 @@ export interface CustomerOrderCustomer {
 
 export interface CustomerOrder {
   id: string;
-  customerId: string;
+  orderNumber: string;
   restaurantId: string;
+  customerId: string;
   status: string;
   totalAmount: string;
-  deliveryAddress: string;
+  taxAmount?: string;
+  platformFee?: string;
+  deliveryCharges?: string;
+  netEarnings?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  deliveryAddress?: unknown;
   note: string | null;
   createdAt: string;
   updatedAt: string;
   items: CustomerOrderItem[];
   customer: CustomerOrderCustomer;
+  deliveries?: any[];
 }
 
 export interface CustomerOrdersListResponse {

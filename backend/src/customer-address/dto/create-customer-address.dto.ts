@@ -9,7 +9,7 @@ export class CreateCustomerAddressDto {
 
   @ApiProperty()
   @IsString()
-  addressLine!: string;
+  address!: string;
 
   @ApiProperty()
   @IsString()
@@ -26,11 +26,16 @@ export class CreateCustomerAddressDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  lat?: number;
+  @IsString()
+  landmark?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Latitude – if omitted the backend will geocode the address' })
   @IsOptional()
   @IsNumber()
-  lng?: number;
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude – if omitted the backend will geocode the address' })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
 }

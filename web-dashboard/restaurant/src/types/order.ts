@@ -8,6 +8,23 @@ export interface OrderItem {
   createdAt: string;
 }
 
+export interface Delivery {
+  id: string;
+  orderId: string;
+  partner: string;
+  shipmentId: string | null;
+  trackingId?: string | null;
+  awbNumber?: string | null;
+  riderName: string | null;
+  riderPhone: string | null;
+  riderVehicle: string | null;
+  status: string;
+  trackingUrl: string | null;
+  eta: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -31,4 +48,5 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
+  deliveries?: Delivery[];
 }
